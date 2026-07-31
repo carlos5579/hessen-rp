@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fraktionen — HESSEN RP</title>
+<meta name="description" content="Alle Fraktionen auf HESSEN RP." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .filter-row{ display:flex; gap:12px; margin-bottom:36px; flex-wrap:wrap; }
+  .filter-row select{ background:var(--bg); border:1px solid var(--line); color:var(--ink); padding:10px 14px; font-family:'IBM Plex Mono'; font-size:13px; }
+  #frak-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); }
+  .frak-card{ background:var(--bg); padding:26px 24px; display:flex; flex-direction:column; }
+  .frak-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .frak-card h3{ font-size:19px; text-transform:none; letter-spacing:0; color:#fff; margin-bottom:4px; }
+  .frak-tag{ font-family:'IBM Plex Mono'; font-size:12px; color:var(--ink-dim); }
+  .frak-card p{ color:var(--ink-dim); font-size:13.8px; margin:10px 0 0; flex:1; }
+  .frak-meta{ display:flex; justify-content:space-between; font-family:'IBM Plex Mono'; font-size:12px; color:var(--ink-dim); margin-top:14px; }
+  @media (max-width: 880px){ #frak-grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<header>
+  <div class="nav-row">
+    <a class="brand" href="index.html">
+      <svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="27" fill="none" stroke="#8991A3" stroke-width="1" opacity=".5"/><circle cx="30" cy="30" r="20" fill="none" stroke="#FF2A44" stroke-width="1.4"/><path d="M30 30 L30 8" stroke="#FF2A44" stroke-width="1.4"/><circle cx="30" cy="30" r="3" fill="#FF2A44"/></svg>
+      <span class="brand-word">HESSEN<span>_RP</span></span>
+    </a>
+    <nav class="links">
+      <a href="index.html#features">FEATURES</a>
+      <a href="regelwerk.html">REGELWERK</a>
+      <a href="ausweis.html">AUSWEIS</a>
+      <a href="fraktionen.html" class="active">FRAKTIONEN</a>
+      <a href="team.html">TEAM</a>
+      <a href="immobilien.html">IMMOBILIEN</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-ghost" href="team.html">Team</a>
+      <a class="btn btn-primary" href="https://discord.gg/v8stHccwZs" target="_blank" rel="noopener">Discord verbinden</a>
+    </div>
+    <button class="menu-toggle" aria-label="Menü öffnen"><span></span><span></span><span></span></button>
+  </div>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <span class="eyebrow">Verwaltung</span>
+      <h1>Fraktionen</h1>
+      <p>Behörden, kriminelle Organisationen und Wirtschaft — finde deine Fraktion und bewirb dich im Discord.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="filter-row">
+        <select id="filter-typ">
+          <option value="">Alle Typen</option>
+        </select>
+        <select id="filter-status">
+          <option value="">Alle Status</option>
+          <option value="offen">Offen</option>
+          <option value="bewerbung">Bewerbung</option>
+          <option value="geschlossen">Geschlossen</option>
+        </select>
+      </div>
+      <div id="frak-grid"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="index.html">
+          <svg viewBox="0 0 60 60" width="30" height="30"><circle cx="30" cy="30" r="27" fill="none" stroke="#8991A3" stroke-width="1" opacity=".5"/><circle cx="30" cy="30" r="20" fill="none" stroke="#FF2A44" stroke-width="1.4"/><path d="M30 30 L30 8" stroke="#FF2A44" stroke-width="1.4"/><circle cx="30" cy="30" r="3" fill="#FF2A44"/></svg>
+          <span class="brand-word">HESSEN<span>_RP</span></span>
+        </a>
+        <p>Eine Roleplay-Community für Leute, die mehr wollen.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Community</h4>
+        <a href="index.html">Start</a>
+        <a href="index.html#features">Features</a>
+        <a href="index.html#faq">FAQ</a>
+      </div>
+      <div class="foot-col">
+        <h4>Verwaltung</h4>
+        <a href="https://discord.gg/v8stHccwZs" target="_blank" rel="noopener">Discord beitreten</a>
+        <a href="fraktionen.html">Fraktionen</a>
+        <a href="team.html">Team</a>
+        <a href="regelwerk.html">Regelwerk</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 HESSEN_RP // ALLE RECHTE VORBEHALTEN</span>
+      <span><a href="admin.html" style="color:inherit; text-decoration:none;">Adminbereich</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script src="script.js"></script>
+<script>
+  function renderFraktionen(){
+    const grid = document.getElementById('frak-grid');
+    const typFilter = document.getElementById('filter-typ').value;
+    const statusFilter = document.getElementById('filter-status').value;
+    let list = getFraktionenData();
+
+    if(typFilter) list = list.filter(f => f.typ === typFilter);
+    if(statusFilter) list = list.filter(f => f.status === statusFilter);
+
+    if(!list.length){
+      grid.innerHTML = '<div class="admin-empty">Keine passenden Fraktionen gefunden.</div>';
+      return;
+    }
+    const statusLabel = { offen:'Offen', bewerbung:'Bewerbung offen', geschlossen:'Geschlossen' };
+    grid.innerHTML = list.map(f => `
+      <div class="frak-card">
+        <div class="faction-type">${f.typ}</div>
+        <div class="frak-head">
+          <div>
+            <h3>${f.name}</h3>
+            <div class="frak-tag">${f.kuerzel}</div>
+          </div>
+        </div>
+        <p>${f.beschreibung || ''}</p>
+        ${f.raenge ? `<div class="faction-ranks"><b>Ränge</b>${f.raenge}</div>` : ''}
+        <div class="frak-meta">
+          <span>Leitung: ${f.leitung || '—'}</span>
+          <span class="faction-status ${f.status}">${statusLabel[f.status] || f.status}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function populateTypFilter(){
+    const select = document.getElementById('filter-typ');
+    const typen = [...new Set(getFraktionenData().map(f => f.typ))].sort();
+    typen.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      select.appendChild(opt);
+    });
+  }
+
+  document.getElementById('filter-typ').addEventListener('change', renderFraktionen);
+  document.getElementById('filter-status').addEventListener('change', renderFraktionen);
+
+  populateTypFilter();
+  renderFraktionen();
+</script>
+</body>
+</html>

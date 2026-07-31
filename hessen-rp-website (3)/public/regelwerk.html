@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Regelwerk — HESSEN RP</title>
+<meta name="description" content="Das offizielle Regelwerk von HESSEN RP." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .layout{ display:grid; grid-template-columns:260px 1fr; gap:56px; padding:64px 0 100px; align-items:start; }
+  .toc{ position:sticky; top:96px; border:1px solid var(--line); background:var(--panel); padding:22px; }
+  .toc-title{ font-family:'IBM Plex Mono'; font-size:11px; letter-spacing:.14em; color:var(--ink-dim); text-transform:uppercase; margin-bottom:14px; }
+  .toc a{ display:block; text-decoration:none; color:var(--ink-dim); font-size:14px; font-family:'IBM Plex Mono'; padding:8px 0; border-left:2px solid transparent; padding-left:12px; transition:.15s; }
+  .toc a:hover, .toc a.active{ color:#fff; border-color:var(--red); }
+
+  .law-section{ border:1px solid var(--line); margin-bottom:1px; background:var(--bg); scroll-margin-top:90px; }
+  .law-head{ padding:26px 30px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:14px; }
+  .law-head .tag{ font-family:'IBM Plex Mono'; color:var(--red); font-weight:600; font-size:15px; }
+  .law-head h2{ font-size:24px; margin:0; }
+  .law-body{ padding:26px 30px; }
+  .clause{ display:grid; grid-template-columns:80px 1fr; gap:18px; padding:16px 0; border-bottom:1px solid var(--line); }
+  .clause:last-child{ border-bottom:none; }
+  .clause .num{ font-family:'IBM Plex Mono'; color:var(--ink-dim); font-size:13px; }
+  .clause .body h4{ font-family:'IBM Plex Sans'; text-transform:none; letter-spacing:0; font-size:15.5px; font-weight:600; color:#fff; margin-bottom:6px; }
+  .clause .body p{ color:var(--ink-dim); font-size:14.5px; margin:0; font-family:'IBM Plex Sans'; }
+
+  .notice{ border:1px dashed var(--line-red); background:rgba(255,42,68,.06); padding:18px 22px; margin-bottom:32px; font-family:'IBM Plex Mono'; font-size:13px; color:var(--ink-dim); }
+  .notice b{ color:var(--red-2); }
+
+  @media (max-width: 880px){
+    .layout{ grid-template-columns:1fr; padding-top:40px; }
+    .toc{ position:relative; top:0; }
+  }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<header>
+  <div class="nav-row">
+    <a class="brand" href="index.html">
+      <svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="27" fill="none" stroke="#8991A3" stroke-width="1" opacity=".5"/><circle cx="30" cy="30" r="20" fill="none" stroke="#FF2A44" stroke-width="1.4"/><path d="M30 30 L30 8" stroke="#FF2A44" stroke-width="1.4"/><circle cx="30" cy="30" r="3" fill="#FF2A44"/></svg>
+      <span class="brand-word">HESSEN<span>_RP</span></span>
+    </a>
+    <nav class="links">
+      <a href="index.html#ablauf">ABLAUF</a>
+      <a href="index.html#features">FEATURES</a>
+      <a href="regelwerk.html" class="active">REGELWERK</a>
+      <a href="ausweis.html">AUSWEIS</a>
+      <a href="fraktionen.html">FRAKTIONEN</a>
+      <a href="team.html">TEAM</a>
+      <a href="immobilien.html">IMMOBILIEN</a>
+      <a href="index.html#faq">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-ghost" href="ausweis.html">Ausweis</a>
+      <a class="btn btn-primary" href="https://discord.gg/v8stHccwZs" target="_blank" rel="noopener">Discord verbinden</a>
+    </div>
+    <button class="menu-toggle" aria-label="Menü öffnen"><span></span><span></span><span></span></button>
+  </div>
+</header>
+
+<main>
+  <section class="page-hero">
+    <div class="wrap">
+      <span class="eyebrow">Rechtsrahmen</span>
+      <h1>Regelwerk</h1>
+      <p>Mit dem Betreten des Servers akzeptiert jeder Spieler automatisch dieses Regelwerk. Es gilt für alle Mitglieder gleichermaßen — ohne Ausnahme.</p>
+    </div>
+  </section>
+
+  <div class="wrap layout">
+    <aside class="toc" id="toc">
+      <div class="toc-title">Inhalt</div>
+    </aside>
+
+    <div>
+      <div class="notice" id="admin-notice"><b>Hinweis:</b> Dieses Regelwerk kann im <a href="admin.html" style="color:var(--red-2);">Adminbereich</a> bearbeitet werden — Paragrafen hinzufügen, ändern oder löschen.</div>
+      <div id="law-content"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="index.html">
+          <svg viewBox="0 0 60 60" width="30" height="30"><circle cx="30" cy="30" r="27" fill="none" stroke="#8991A3" stroke-width="1" opacity=".5"/><circle cx="30" cy="30" r="20" fill="none" stroke="#FF2A44" stroke-width="1.4"/><path d="M30 30 L30 8" stroke="#FF2A44" stroke-width="1.4"/><circle cx="30" cy="30" r="3" fill="#FF2A44"/></svg>
+          <span class="brand-word">HESSEN<span>_RP</span></span>
+        </a>
+        <p>Eine Roleplay-Community für Leute, die mehr wollen.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Community</h4>
+        <a href="index.html">Start</a>
+        <a href="index.html#features">Features</a>
+        <a href="index.html#faq">FAQ</a>
+      </div>
+      <div class="foot-col">
+        <h4>Verwaltung</h4>
+        <a href="https://discord.gg/v8stHccwZs" target="_blank" rel="noopener">Discord beitreten</a>
+        <a href="ausweis.html">Ausweis erstellen</a>
+        <a href="fraktionen.html">Fraktionen</a>
+        <a href="team.html">Team</a>
+        <a href="immobilien.html">Immobilien</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 HESSEN_RP // ALLE RECHTE VORBEHALTEN</span>
+      <span><a href="admin.html" style="color:inherit; text-decoration:none;">Adminbereich</a> · NICHT AFFILIIERT MIT DEM LAND HESSEN</span>
+    </div>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script src="script.js"></script>
+<script>
+  function slug(section){ return 'p' + section.replace(/[^0-9]/g,''); }
+
+  function groupBySections(list){
+    const groups = [];
+    const bySection = new Map();
+    list.forEach(item => {
+      if(!bySection.has(item.section)){
+        const group = { section:item.section, sectionTitle:item.sectionTitle, clauses:[] };
+        bySection.set(item.section, group);
+        groups.push(group);
+      }
+      bySection.get(item.section).clauses.push(item);
+    });
+    return groups;
+  }
+
+  function renderRegelwerk(){
+    const list = getRegelwerkData();
+    const toc = document.getElementById('toc');
+    const content = document.getElementById('law-content');
+
+    if(!list.length){
+      content.innerHTML = '<div class="admin-empty">Noch kein Regelwerk hinterlegt. Füge Paragrafen im Adminbereich hinzu.</div>';
+      toc.innerHTML = '<div class="toc-title">Inhalt</div>';
+      return;
+    }
+
+    const groups = groupBySections(list);
+
+    toc.innerHTML = '<div class="toc-title">Inhalt</div>' + groups.map(g =>
+      `<a href="#${slug(g.section)}">${g.section} ${g.sectionTitle}</a>`
+    ).join('');
+
+    content.innerHTML = groups.map(g => `
+      <section class="law-section" id="${slug(g.section)}">
+        <div class="law-head"><span class="tag">${g.section}</span><h2>${g.sectionTitle}</h2></div>
+        <div class="law-body">
+          ${g.clauses.map(c => `
+            <div class="clause">
+              <span class="num">${c.num}</span>
+              <div class="body"><h4>${c.title}</h4><p>${c.text}</p></div>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    `).join('');
+
+    const sections = document.querySelectorAll('.law-section');
+    const tocLinks = document.querySelectorAll('.toc a');
+    const spy = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting){
+          tocLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + entry.target.id));
+        }
+      });
+    }, { rootMargin: '-40% 0px -50% 0px' });
+    sections.forEach(s => spy.observe(s));
+  }
+  renderRegelwerk();
+</script>
+</body>
+</html>
