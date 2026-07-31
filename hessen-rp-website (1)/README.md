@@ -5,7 +5,7 @@ Static Assets (das aktuell empfohlene Cloudflare-Modell, Nachfolger von
 "klassischem" Pages). Der Worker übernimmt zusätzlich zwei API-Routen für
 die Discord-Webhooks (Notruf & Ausweis-Versand).
 
-## Projektstruktur
+## Projektstruktur    
 
 | Pfad                  | Zweck                                                     |
 |-----------------------|------------------------------------------------------------|
