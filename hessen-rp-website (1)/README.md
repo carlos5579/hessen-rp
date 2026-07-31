@@ -18,10 +18,10 @@ Seiten in `public/`: `index.html`, `regelwerk.html`, `ausweis.html`,
 
 ## Wie Inhalte gespeichert werden
 
-Team, Immobilien, Regelwerk und Fraktionen liegen als Default-Daten in
-`public/data.js`. Der Admin-Bereich (`admin.html`) speichert Änderungen
-zunächst nur **lokal im Browser** (localStorage). Damit Änderungen für
-**alle** Besucher sichtbar werden: im Admin-Bereich "Als Code exportieren"
+Team, Immobilien, Regelwerk und Fraktionen liegen als Default-Daten in   
+`public/data.js`. Der Admin-Bereich (`admin.html`) speichert Änderungen   
+zunächst nur **lokal im Browser** (localStorage). Damit Änderungen für  
+**alle** Besucher sichtbar werden: im Admin-Bereich "Als Code exportieren"  
 klicken, den Code in `public/data.js` einfügen, committen und pushen.
 
 Admin-Zugang: Passphrase steht am Anfang von `public/admin.html`
