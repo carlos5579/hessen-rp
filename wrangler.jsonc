@@ -9,7 +9,7 @@
   },
   "kv_namespaces": [
     {
-      "binding": "DATA_KV",
+      "binding": "hessenrp-data",
       "id": "2b448fca85c54e01ac4377520343490b"
     }
   ],
