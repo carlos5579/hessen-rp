@@ -134,7 +134,7 @@ async function handleResetData(type, request, env) {
 
 async function handleUploadImage(request, env) {
   if (!isAuthorized(request, env)) return json({ error: 'Nicht autorisiert.' }, 401);
-  if (!env.IMAGES_BUCKET) return json({ error: 'IMAGES_BUCKET ist auf dem Server nicht konfiguriert.' }, 500);
+  if (!env.DATA_KV) return json({ error: 'DATA_KV ist auf dem Server nicht konfiguriert.' }, 500);
 
   var contentType = request.headers.get('Content-Type') || '';
   if (contentType.indexOf('multipart/form-data') === -1) {
@@ -144,29 +144,36 @@ async function handleUploadImage(request, env) {
   var form = await request.formData();
   var file = form.get('file');
   if (!file || typeof file === 'string') return json({ error: 'Keine Datei gefunden.' }, 400);
-  if (file.size > 8 * 1024 * 1024) return json({ error: 'Bild zu groß (max. 8 MB).' }, 413);
+  // KV values are base64-encoded here (~33% larger than the original file),
+  // so keep a conservative cap well under KV's per-value limit.
+  if (file.size > 4 * 1024 * 1024) return json({ error: 'Bild zu groß (max. 4 MB).' }, 413);
 
   var allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
   var fileType = file.type || 'application/octet-stream';
   if (allowed.indexOf(fileType) === -1) return json({ error: 'Nur PNG, JPEG, WEBP oder GIF erlaubt.' }, 415);
 
-  var ext = fileType.split('/')[1] || 'bin';
-  var key = 'immobilien/' + crypto.randomUUID() + '.' + ext;
-  await env.IMAGES_BUCKET.put(key, await file.arrayBuffer(), {
-    httpMetadata: { contentType: fileType },
-  });
+  var buffer = await file.arrayBuffer();
+  var bytes = new Uint8Array(buffer);
+  var binary = '';
+  for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  var base64 = btoa(binary);
 
-  return json({ ok: true, url: '/api/image/' + key });
+  var key = 'img:' + crypto.randomUUID();
+  await env.DATA_KV.put(key, JSON.stringify({ contentType: fileType, data: base64 }));
+
+  return json({ ok: true, url: '/api/image/' + key.slice(4) });
 }
 
-async function handleGetImage(key, env) {
-  if (!env.IMAGES_BUCKET) return new Response('Not configured', { status: 500 });
-  var obj = await env.IMAGES_BUCKET.get(key);
-  if (!obj) return new Response('Not found', { status: 404 });
-  var contentType = (obj.httpMetadata && obj.httpMetadata.contentType) || 'application/octet-stream';
-  return new Response(obj.body, {
+async function handleGetImage(id, env) {
+  if (!env.DATA_KV) return new Response('Not configured', { status: 500 });
+  var stored = await env.DATA_KV.get('img:' + id, 'json');
+  if (!stored) return new Response('Not found', { status: 404 });
+  var binary = atob(stored.data);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Response(bytes, {
     headers: {
-      'Content-Type': contentType,
+      'Content-Type': stored.contentType || 'application/octet-stream',
       'Cache-Control': 'public, max-age=31536000, immutable',
     },
   });
