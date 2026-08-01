@@ -5,7 +5,7 @@ Fraktionen) liegen jetzt **zentral in Cloudflare KV** — nicht mehr im
 localStorage des Browsers. Änderungen im Adminbereich sind sofort für alle
 Besucher sichtbar. Immobilien-Bilder werden in Cloudflare R2 gespeichert.
 
-## Projektstruktur
+## Projektstruktur    
 
 | Pfad                  | Zweck                                                     |
 |------------------------|------------------------------------------------------------|
