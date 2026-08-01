@@ -66,6 +66,8 @@ header{ position:sticky; top:0; z-index:100; background:rgba(8,9,13,.72); backdr
 nav.links{ display:flex; gap:28px; }
 nav.links a{ text-decoration:none; font-size:13.5px; font-family:'IBM Plex Mono'; letter-spacing:.04em; color:var(--ink-dim); padding-bottom:2px; border-bottom:1px solid transparent; transition:.15s; }
 nav.links a:hover, nav.links a:focus-visible, nav.links a.active{ color:var(--ink); border-color:var(--red); text-shadow:0 0 10px var(--red-glow); }
+nav.links a.nav-notruf{ color:var(--red-2); }
+nav.links a.nav-notruf:hover, nav.links a.nav-notruf:focus-visible{ color:var(--red); }
 .header-actions{ display:flex; align-items:center; gap:16px; }
 .btn{
   display:inline-flex; align-items:center; gap:9px; font-family:'IBM Plex Mono'; font-weight:500; font-size:13.5px;
@@ -135,7 +137,8 @@ footer{ border-top:1px solid var(--line); padding:58px 0 32px; }
 .person-tag{ font-family:'IBM Plex Mono'; font-size:11px; color:var(--ink-dim); margin-top:12px; display:inline-block; border:1px solid var(--line); padding:4px 9px; }
 
 .property-card{ background:var(--bg); display:flex; flex-direction:column; }
-.property-img{ height:170px; background-size:cover; background-position:center; position:relative; border-bottom:1px solid var(--line); }
+.property-img{ height:170px; background-size:cover; background-position:center; position:relative; border-bottom:1px solid var(--line); overflow:hidden; }
+.property-img img{ width:100%; height:100%; object-fit:cover; display:block; }
 .property-img.no-img{ display:flex; align-items:center; justify-content:center; color:var(--ink-dim); font-family:'IBM Plex Mono'; font-size:12px; background:rgba(233,237,243,.03); }
 .property-status{ position:absolute; top:12px; left:12px; font-family:'IBM Plex Mono'; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; padding:5px 10px; background:rgba(8,9,13,.85); border:1px solid var(--line-red); color:var(--red-2); }
 .property-body{ padding:22px 24px; flex:1; display:flex; flex-direction:column; }

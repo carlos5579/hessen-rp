@@ -73,3 +73,59 @@ async function loadDiscordStats(){
   }
 }
 loadDiscordStats();
+
+// public Notruf form (only present on index.html) — no admin auth needed,
+// this is citizens calling for an admin, not the other way around.
+const notrufSendBtn = document.getElementById('notruf-send');
+if (notrufSendBtn) {
+  notrufSendBtn.addEventListener('click', async () => {
+    const status = document.getElementById('notruf-status');
+    const absender = document.getElementById('notruf-absender').value.trim();
+    const ort = document.getElementById('notruf-ort').value.trim();
+    const grund = document.getElementById('notruf-grund').value.trim();
+
+    if (!grund) {
+      status.textContent = 'Bitte kurz beschreiben, was los ist.';
+      status.className = 'notruf-status err';
+      return;
+    }
+
+    notrufSendBtn.disabled = true;
+    status.textContent = 'Wird gesendet …';
+    status.className = 'notruf-status';
+    try {
+      const res = await fetch('/api/notruf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ absender, ort, grund }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        status.textContent = '✅ Notruf gesendet — das Team wurde benachrichtigt.';
+        status.className = 'notruf-status ok';
+        document.getElementById('notruf-grund').value = '';
+        // simple cooldown to avoid accidental double-sends / spam
+        let seconds = 30;
+        notrufSendBtn.textContent = `Erneut in ${seconds}s`;
+        const interval = setInterval(() => {
+          seconds -= 1;
+          if (seconds <= 0) {
+            clearInterval(interval);
+            notrufSendBtn.textContent = '🚨 Notruf senden';
+            notrufSendBtn.disabled = false;
+          } else {
+            notrufSendBtn.textContent = `Erneut in ${seconds}s`;
+          }
+        }, 1000);
+        return; // keep disabled during cooldown
+      } else {
+        status.textContent = '❌ ' + (data.error || 'Senden fehlgeschlagen.');
+        status.className = 'notruf-status err';
+      }
+    } catch (err) {
+      status.textContent = '❌ Konnte den Server nicht erreichen.';
+      status.className = 'notruf-status err';
+    }
+    notrufSendBtn.disabled = false;
+  });
+}

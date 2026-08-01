@@ -99,6 +99,7 @@
       <a href="fraktionen.html">FRAKTIONEN</a>
       <a href="team.html">TEAM</a>
       <a href="immobilien.html">IMMOBILIEN</a>
+      <a href="index.html#notruf" class="nav-notruf">🚨 NOTRUF</a>
       <a href="index.html#faq">FAQ</a>
     </nav>
     <div class="header-actions">
@@ -254,6 +255,29 @@
           </div>
           <a class="btn btn-primary" href="immobilien.html">Immobilien ansehen ↗</a>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="notruf" style="padding-top:0;">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Hilfe</span>
+        <h2>Notruf an das Team.</h2>
+        <p>Brauchst du im Spiel gerade Hilfe von einem Admin? Sende einen Notruf — er geht sofort an unser Team im Discord.</p>
+      </div>
+      <div class="notruf-panel" style="max-width:640px;">
+        <h3>🚨 Notruf senden</h3>
+        <p>Bitte nur bei echten Problemen nutzen (Regelverstoß, Bug-Abuse, Streit, Notfall) — kein Support-Chat.</p>
+        <div class="field-row">
+          <div class="field"><label>Dein Ingame-/Discord-Name</label><input type="text" id="notruf-absender" placeholder="z. B. dein Name"></div>
+          <div class="field"><label>Ort / Situation</label><input type="text" id="notruf-ort" placeholder="z. B. Rathaus Frankfurt"></div>
+        </div>
+        <div class="field"><label>Was ist los?</label><textarea id="notruf-grund" placeholder="Kurz beschreiben, was passiert ist"></textarea></div>
+        <div class="actions">
+          <button class="btn btn-primary" id="notruf-send" type="button">🚨 Notruf senden</button>
+        </div>
+        <div class="notruf-status" id="notruf-status"></div>
       </div>
     </div>
   </section>

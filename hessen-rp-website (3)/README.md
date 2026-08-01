@@ -1,117 +1,149 @@
 # HESSEN RP — Website
 
-Statische Mehrseiten-Website, ausgeliefert über einen Cloudflare Worker mit
-Static Assets (das aktuell empfohlene Cloudflare-Modell, Nachfolger von
-"klassischem" Pages). Der Worker übernimmt zusätzlich zwei API-Routen für
-die Discord-Webhooks (Notruf & Ausweis-Versand).
+Cloudflare Worker mit Static Assets. Alle Inhalte (Team, Immobilien, Regelwerk,
+Fraktionen) liegen jetzt **zentral in Cloudflare KV** — nicht mehr im
+localStorage des Browsers. Änderungen im Adminbereich sind sofort für alle
+Besucher sichtbar. Immobilien-Bilder werden in Cloudflare R2 gespeichert.
 
 ## Projektstruktur
 
 | Pfad                  | Zweck                                                     |
-|-----------------------|------------------------------------------------------------|
-| `public/`             | Die eigentliche Website (alle `.html`, `styles.css`, `script.js`, `data.js`) |
-| `worker/index.js`     | Worker-Script: beantwortet `/api/notruf` & `/api/ausweis`, alles andere geht an die statischen Dateien |
-| `wrangler.jsonc`      | Cloudflare-Konfiguration (Worker-Entry-Point + Assets-Ordner) |
+|------------------------|------------------------------------------------------------|
+| `public/`              | Die Website (alle `.html`, `styles.css`, `script.js`, `data.js`) |
+| `worker/index.js`      | Worker-Script: API-Routen + liefert die statischen Dateien aus |
+| `wrangler.jsonc`       | Cloudflare-Konfiguration (Worker, Assets, KV, R2)          |
+| `package.json`         | Nur damit Wrangler sauber erkannt wird, keine echten Abhängigkeiten nötig |
 
-Seiten in `public/`: `index.html`, `regelwerk.html`, `ausweis.html`,
-`fraktionen.html`, `team.html`, `immobilien.html`, `admin.html`.
+## Ersteinrichtung — bitte der Reihe nach abarbeiten
 
-## Wie Inhalte gespeichert werden
+### 1. KV-Namespace anlegen
 
-Team, Immobilien, Regelwerk und Fraktionen liegen als Default-Daten in
-`public/data.js`. Der Admin-Bereich (`admin.html`) speichert Änderungen
-zunächst nur **lokal im Browser** (localStorage). Damit Änderungen für
-**alle** Besucher sichtbar werden: im Admin-Bereich "Als Code exportieren"
-klicken, den Code in `public/data.js` einfügen, committen und pushen.
+Dashboard → **Storage & Databases → KV → Create instance/namespace**.
+Name z. B. `hessenrp-data`. Nach dem Erstellen wird eine **ID** angezeigt —
+die brauchst du gleich.
 
-Admin-Zugang: Passphrase steht am Anfang von `public/admin.html`
-(`ADMIN_PASSPHRASE`) — dort direkt ändern.
+Öffne `wrangler.jsonc` und ersetze `DEINE_KV_NAMESPACE_ID` durch diese ID:
 
-## Deployment auf Cloudflare (Workers, Git-Integration)
+```jsonc
+"kv_namespaces": [
+  { "binding": "DATA_KV", "id": "hier-die-echte-id-einfügen" }
+]
+```
 
-1. Repo auf GitHub pushen (ist hier schon als Git-Repo vorbereitet):
-   ```bash
-   git remote add origin https://github.com/DEIN-USERNAME/hessen-rp.git
-   git push -u origin main
-   ```
-2. Cloudflare Dashboard → **Workers & Pages** → **Create application** →
-   **Workers** → **Connect to Git** (bzw. "Import a repository") → Repo
-   auswählen.
-3. Bei den Build-Einstellungen:
-   - **Build command**: leer lassen
-   - **Deploy command**: `npx wrangler deploy`
-   - Root directory: `/` (Standard, da `wrangler.jsonc` im Projekt-Root liegt)
-4. Deploy anstoßen. Cloudflare erkennt automatisch `wrangler.jsonc` und
-   deployt Worker + statische Seiten zusammen.
+### 2. R2-Bucket anlegen
 
-Jeder Push auf `main` deployt danach automatisch neu.
+Dashboard → **Storage & Databases → R2 → Create bucket**. Name:
+`hessenrp-images` (muss zum `bucket_name` in `wrangler.jsonc` passen — wenn
+du einen anderen Namen wählst, `wrangler.jsonc` entsprechend anpassen).
 
-## Discord-Webhooks einrichten (wichtig!)
+> R2 verlangt bei manchen Konten eine hinterlegte Zahlungsmethode, auch wenn
+> ihr im kostenlosen Kontingent bleibt. Das ist normal und keine Fehlkonfiguration.
 
-Der Notruf-Button (`admin.html`) und der Ausweis-Versand (`ausweis.html`)
-rufen `/api/notruf` bzw. `/api/ausweis` auf `worker/index.js` auf. Dieser
-Worker leitet die Anfrage serverseitig an eure Discord-Webhooks weiter —
-**die Webhook-URLs selbst stehen in keiner Datei in diesem Repo.** Würden
-sie im Client-Code stehen, könnte jeder Besucher sie im Quelltext auslesen
-und selbst beliebige Nachrichten an euren Discord-Kanal schicken.
+### 3. Alles committen und pushen
 
-Stattdessen als **verschlüsselte Variable (Secret)** direkt am Worker
-hinterlegen:
+```bash
+git add -A
+git commit -m "KV + R2 Anbindung, wrangler.jsonc mit echter KV-ID"
+git push
+```
 
-1. Cloudflare Dashboard → euer Worker-Projekt (`hessen-rp`) →
-   **Settings → Variables and Secrets**
-2. **Add** → zwei Einträge anlegen:
-   - `DISCORD_WEBHOOK_NOTRUF` → eure Notruf-Webhook-URL
-   - `DISCORD_WEBHOOK_AUSWEISE` → eure Ausweis-Webhook-URL
-3. Typ jeweils auf **Secret** stellen (nicht "Text/Plaintext"), damit der
-   Wert verschlüsselt gespeichert wird und im Dashboard nicht mehr im
-   Klartext auftaucht.
-4. Speichern → danach einmal **erneut deployen**, damit der Worker die
-   Variablen erhält (z. B. "Retry deployment" im Dashboard, oder einfach
-   einen neuen Commit pushen).
+**Wichtig:** Bitte danach auf github.com im Repo nachschauen, ob
+`wrangler.jsonc`, `worker/index.js`, `package.json` und der komplette
+`public/`-Ordner tatsächlich da sind. Das ist der häufigste Stolperstein.
 
-> Falls "Settings → Variables and Secrets" weiterhin einen Fehler wie
-> "Variables cannot be added to a Worker that only has static assets"
-> zeigt: Das bedeutet, Cloudflare hat noch keinen echten Worker-Code
-> erkannt. Prüft, dass `wrangler.jsonc` im Projekt-Root liegt und `main`
-> auf `worker/index.js` zeigt, und dass der Deploy-Command wirklich
-> `npx wrangler deploy` ist (nicht leer). Nach einem erneuten Deploy mit
-> dieser Konfiguration sollte die Worker-Engine erkannt werden und die
-> Variablen-Sektion freigeschaltet sein.
+### 4. Secrets setzen
 
-**Ohne diese zwei Variablen liefern die Buttons eine Fehlermeldung**
-("Webhook nicht konfiguriert") — das ist Absicht, kein Bug.
+Cloudflare Dashboard → dein Worker (`hessen-rp`) → **Settings → Variables
+and Secrets** → **Add** → jeweils Typ **Secret**:
 
-Wichtig: Diese Buttons funktionieren **nur**, wenn die Seite tatsächlich
-über Cloudflare läuft. Öffnet man `public/index.html` lokal per Doppelklick
-im Browser, gibt es keinen Worker, der `/api/...` beantworten könnte.
+| Name                      | Wert                                  |
+|----------------------------|----------------------------------------|
+| `ADMIN_KEY`                | Eure eigene Admin-Zugangsphrase (frei wählbar) |
+| `DISCORD_WEBHOOK_NOTRUF`   | Eure Notruf-Webhook-URL               |
+| `DISCORD_WEBHOOK_AUSWEISE` | Eure Ausweis-Webhook-URL              |
+
+`ADMIN_KEY` ersetzt die alte, fest im Code stehende Passphrase — die Eingabe
+im Admin-Bereich wird jetzt direkt gegen dieses Secret geprüft. Diese
+Zugangsphrase ist also gleichzeitig euer neues Admin-Passwort.
+
+### 5. Neu deployen
+
+Nach dem Setzen der Secrets: **Retry deployment** im Dashboard, oder einfach
+einen neuen Commit pushen.
+
+## Falls der Deploy weiterhin mit "Could not detect a directory containing
+static files" fehlschlägt
+
+Das bedeutet: Wrangler findet die `wrangler.jsonc` nicht. Prüft in dieser
+Reihenfolge:
+
+1. **Liegt `wrangler.jsonc` wirklich im Repo-Root auf GitHub?** Direkt auf
+   github.com nachschauen, nicht nur lokal.
+2. **Settings → Build → Root directory** muss `/` sein (nicht `public` o. ä.).
+3. **Deploy command** muss exakt `npx wrangler deploy` sein.
+4. Ein frischer `git push` mit allen Dateien aus diesem Zip (inkl. `.git`-
+   Verlauf) behebt es in den allermeisten Fällen, wenn vorher nur eine ältere
+   Version im Repo lag.
+
+Erst wenn ein Deploy **erfolgreich** durchläuft, hat der Worker überhaupt
+eigenen Code — vorher meldet Cloudflare bei den Variablen auch weiterhin
+"Variables cannot be added to a Worker that only has static assets", weil
+noch nie erfolgreich Worker-Code deployt wurde.
+
+## Wie Inhalte jetzt gespeichert werden
+
+- `GET /api/data/:type` liefert die aktuellen Daten (team, immobilien,
+  regelwerk, fraktionen) aus KV — öffentlich lesbar, kein Login nötig.
+- `POST /api/data/:type` speichert eine neue Liste — nur mit gültigem
+  `Authorization: Bearer <ADMIN_KEY>`-Header (das macht der Admin-Bereich
+  automatisch, sobald ihr euch mit der Zugangsphrase eingeloggt habt).
+- Bilder: `POST /api/upload-image` (admin-only) lädt eine Datei nach R2 hoch
+  und gibt eine URL wie `/api/image/<key>` zurück, die dann im Immobilien-
+  Eintrag gespeichert wird.
+
+Der alte "Als Code exportieren"-Workflow ist komplett entfallen — Änderungen
+im Adminbereich sind sofort live.
+
+## Admin-Zugang
+
+Zugangsphrase = der Wert des `ADMIN_KEY`-Secrets. Das ist jetzt eine echte
+serverseitige Prüfung, keine reine Clientseiten-Sperre mehr wie vorher.
+
+## Discord-Webhooks
+
+Unverändert: Die Webhook-URLs stehen in keiner Datei im Repo, sondern nur als
+Secrets in Cloudflare (`DISCORD_WEBHOOK_NOTRUF`, `DISCORD_WEBHOOK_AUSWEISE`).
+Der Notruf-Button sitzt auf der **öffentlichen Startseite** (`index.html`,
+Abschnitt "Notruf an das Team") — er ist für Bürger/Spieler gedacht, die
+einen Admin brauchen, deshalb bewusst ohne Login. Es gibt einen einfachen
+30-Sekunden-Cooldown im Frontend gegen versehentliches Mehrfach-Senden, aber
+keinen echten Spam-Schutz (siehe "Bekannte Grenzen" unten). Der
+Ausweis-Versand bleibt ebenfalls öffentlich, da normale Spieler ihn nutzen.
 
 ## Lokale Entwicklung (optional)
-
-Mit installiertem Node.js und Wrangler:
 
 ```bash
 npm install -g wrangler
 wrangler dev
 ```
 
-Für lokale Tests der Webhook-Routen könnt ihr eine `.dev.vars`-Datei anlegen
-(wird nicht committet, siehe `.gitignore`):
+Für lokale Tests eine `.dev.vars`-Datei anlegen (wird nicht committet):
 
 ```
+ADMIN_KEY=dein-test-passwort
 DISCORD_WEBHOOK_NOTRUF=https://discord.com/api/webhooks/...
 DISCORD_WEBHOOK_AUSWEISE=https://discord.com/api/webhooks/...
 ```
 
+Für KV/R2 lokal braucht Wrangler zusätzlich `--local`-kompatible Bindings,
+das ist optional und für den ersten Start nicht nötig — Testen direkt auf
+Cloudflare nach dem Deploy ist meist einfacher.
+
 ## Bekannte Grenzen (bewusste Trade-offs)
 
-- **Kein echtes Login/Datenbank**: Der Admin-Bereich ist eine reine
-  Passphrase-Sperre, kein echtes Auth-System. Für mehr Sicherheit könnt ihr
-  zusätzlich Cloudflare Access vor `/admin.html` schalten (Dashboard →
-  Settings → Access Policy).
-- **Kein Abuse-Schutz** auf `/api/notruf` und `/api/ausweis`: Jeder, der die
-  Website erreicht, kann die Endpunkte technisch aufrufen, nicht nur über
-  die Buttons. Für den Anfang meist unkritisch bei einer kleinen Community;
-  bei Missbrauch könnt ihr über Cloudflare Turnstile (Captcha) oder Rate
-  Limiting (Dashboard → Security) nachrüsten.
-- **Bilder in Immobilien**: Aktuell keine Bild-Uploads, nur Text-Daten.
+- **Kein Rate-Limiting** auf den `/api/*`-Routen — bei Missbrauch könnt ihr
+  über Cloudflare Turnstile oder Rate Limiting (Dashboard → Security)
+  nachrüsten.
+- **Ein einziger Admin-Schlüssel** für alle Admins — kein individuelles
+  Login pro Person. Für mehr Kontrolle könnte man später Cloudflare Access
+  vor `/admin.html` schalten.

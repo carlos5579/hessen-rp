@@ -38,6 +38,7 @@
       <a href="fraktionen.html" class="active">FRAKTIONEN</a>
       <a href="team.html">TEAM</a>
       <a href="immobilien.html">IMMOBILIEN</a>
+      <a href="index.html#notruf" class="nav-notruf">🚨 NOTRUF</a>
     </nav>
     <div class="header-actions">
       <a class="btn btn-ghost" href="team.html">Team</a>
@@ -108,11 +109,13 @@
 <script src="data.js"></script>
 <script src="script.js"></script>
 <script>
+  let allFraktionen = [];
+
   function renderFraktionen(){
     const grid = document.getElementById('frak-grid');
     const typFilter = document.getElementById('filter-typ').value;
     const statusFilter = document.getElementById('filter-status').value;
-    let list = getFraktionenData();
+    let list = allFraktionen;
 
     if(typFilter) list = list.filter(f => f.typ === typFilter);
     if(statusFilter) list = list.filter(f => f.status === statusFilter);
@@ -143,7 +146,7 @@
 
   function populateTypFilter(){
     const select = document.getElementById('filter-typ');
-    const typen = [...new Set(getFraktionenData().map(f => f.typ))].sort();
+    const typen = [...new Set(allFraktionen.map(f => f.typ))].sort();
     typen.forEach(t => {
       const opt = document.createElement('option');
       opt.value = t; opt.textContent = t;
@@ -154,8 +157,11 @@
   document.getElementById('filter-typ').addEventListener('change', renderFraktionen);
   document.getElementById('filter-status').addEventListener('change', renderFraktionen);
 
-  populateTypFilter();
-  renderFraktionen();
+  (async function init(){
+    allFraktionen = await getFraktionenData();
+    populateTypFilter();
+    renderFraktionen();
+  })();
 </script>
 </body>
 </html>

@@ -32,6 +32,7 @@
       <a href="fraktionen.html">FRAKTIONEN</a>
       <a href="team.html">TEAM</a>
       <a href="immobilien.html" class="active">IMMOBILIEN</a>
+      <a href="index.html#notruf" class="nav-notruf">🚨 NOTRUF</a>
     </nav>
     <div class="header-actions">
       <a class="btn btn-ghost" href="team.html">Team</a>
@@ -104,11 +105,13 @@
 <script>
   function formatPreis(n){ return Number(n).toLocaleString('de-DE') + ' €'; }
 
+  let allImmobilien = [];
+
   function renderImmobilien(){
     const grid = document.getElementById('immo-grid');
     const statusFilter = document.getElementById('filter-status').value;
     const stadtFilter = document.getElementById('filter-stadt').value;
-    let list = getImmobilienData();
+    let list = allImmobilien;
 
     if(statusFilter) list = list.filter(p => p.status === statusFilter);
     if(stadtFilter) list = list.filter(p => p.stadt === stadtFilter);
@@ -119,7 +122,9 @@
     }
     grid.innerHTML = list.map(p => `
       <div class="property-card">
-        <div class="property-img no-img"><span>// KEIN BILD HINTERLEGT</span></div>
+        ${p.bild
+          ? `<div class="property-img"><img src="${p.bild}" alt="${p.titel}" loading="lazy"></div>`
+          : `<div class="property-img no-img"><span>// KEIN BILD HINTERLEGT</span></div>`}
         <div class="property-body">
           <span class="property-status">${p.status}</span>
           <h3 style="margin-top:14px;">${p.titel}</h3>
@@ -137,7 +142,7 @@
 
   function populateStadtFilter(){
     const select = document.getElementById('filter-stadt');
-    const staedte = [...new Set(getImmobilienData().map(p => p.stadt))].sort();
+    const staedte = [...new Set(allImmobilien.map(p => p.stadt))].sort();
     staedte.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s; opt.textContent = s;
@@ -148,8 +153,11 @@
   document.getElementById('filter-status').addEventListener('change', renderImmobilien);
   document.getElementById('filter-stadt').addEventListener('change', renderImmobilien);
 
-  populateStadtFilter();
-  renderImmobilien();
+  (async function init(){
+    allImmobilien = await getImmobilienData();
+    populateStadtFilter();
+    renderImmobilien();
+  })();
 </script>
 </body>
 </html>

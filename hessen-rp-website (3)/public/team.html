@@ -26,6 +26,7 @@
       <a href="fraktionen.html">FRAKTIONEN</a>
       <a href="team.html" class="active">TEAM</a>
       <a href="immobilien.html">IMMOBILIEN</a>
+      <a href="index.html#notruf" class="nav-notruf">🚨 NOTRUF</a>
     </nav>
     <div class="header-actions">
       <a class="btn btn-ghost" href="immobilien.html">Immobilien</a>
@@ -88,9 +89,9 @@
   function initials(name){
     return name.trim().split(/\s+/).map(p => p[0]).join('').slice(0,2).toUpperCase();
   }
-  function renderTeam(){
+  async function renderTeam(){
     const grid = document.getElementById('team-grid');
-    const team = getTeamData();
+    const team = await getTeamData();
     if(!team.length){
       grid.innerHTML = '<div class="admin-empty">Noch keine Teammitglieder eingetragen.</div>';
       return;

@@ -7,6 +7,18 @@
     "directory": "./public",
     "binding": "ASSETS"
   },
+  "kv_namespaces": [
+    {
+      "binding": "DATA_KV",
+      "id": "DEINE_KV_NAMESPACE_ID"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES_BUCKET",
+      "bucket_name": "hessenrp-images"
+    }
+  ],
   "observability": {
     "enabled": true
   }
