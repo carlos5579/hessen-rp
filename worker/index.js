@@ -5,17 +5,26 @@
 //   2. GET/POST /api/data/:type   — team / immobilien / regelwerk / fraktionen,
 //      stored in Cloudflare KV so all visitors see the same data (no more
 //      per-browser localStorage)
-//   3. POST /api/upload-image     — Immobilien photos, stored in Cloudflare R2
-//   4. POST /api/notruf           — admin panic button -> Discord webhook
+//   3. POST /api/upload-image     — Immobilien photos, stored as base64 in
+//      Cloudflare KV (no R2 needed — simpler setup, no billing required)
+//   4. POST /api/notruf           — public panic button -> Discord webhook
+//      (citizens calling for an admin, so intentionally no login required)
 //   5. POST /api/ausweis          — Bürgerausweis -> Discord webhook
 //   6. POST /api/admin/verify     — checks the admin passphrase against env.ADMIN_KEY
 //
 // Required bindings/secrets (see README.md for exact setup steps):
 //   - KV namespace  bound as DATA_KV
-//   - R2 bucket     bound as IMAGES_BUCKET
 //   - Secret        ADMIN_KEY               (your own admin passphrase)
 //   - Secret        DISCORD_WEBHOOK_NOTRUF
 //   - Secret        DISCORD_WEBHOOK_AUSWEISE
+//   - Variable      NOTRUF_PING_ROLE_ID     (optional — Discord role ID to
+//                                            ping on /api/notruf; falls back
+//                                            to @here if not set)
+//
+// Abuse protection: /api/notruf and /api/ausweis are rate-limited per IP via
+// KV (3 notrufe / 10 min, 5 ausweise / 10 min). This is a soft, best-effort
+// limit (KV is eventually consistent) — good enough for a small community,
+// not a hard security guarantee.
 
 const DATA_TYPES = ['team', 'immobilien', 'regelwerk', 'fraktionen'];
 
@@ -88,6 +97,23 @@ function isAuthorized(request, env) {
   var auth = request.headers.get('Authorization') || '';
   var token = auth.replace(/^Bearer\s+/i, '');
   return !!token && token === env.ADMIN_KEY;
+}
+
+// Simple IP-based rate limiter backed by KV (fail-open if KV isn't configured,
+// so a misconfiguration never fully blocks the site — it just loses the
+// abuse protection until DATA_KV is set up).
+async function checkRateLimit(env, bucket, request, limit, windowSeconds) {
+  if (!env.DATA_KV) return true;
+  var ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  var key = 'rl:' + bucket + ':' + ip;
+  var now = Date.now();
+  var windowMs = windowSeconds * 1000;
+  var raw = await env.DATA_KV.get(key, 'json');
+  var timestamps = Array.isArray(raw) ? raw.filter(function (t) { return now - t < windowMs; }) : [];
+  if (timestamps.length >= limit) return false;
+  timestamps.push(now);
+  await env.DATA_KV.put(key, JSON.stringify(timestamps), { expirationTtl: windowSeconds });
+  return true;
 }
 
 async function handleAdminVerify(request, env) {
@@ -183,6 +209,11 @@ async function handleNotruf(request, env) {
   var webhook = env.DISCORD_WEBHOOK_NOTRUF;
   if (!webhook) return json({ error: 'Notruf-Webhook ist auf dem Server nicht konfiguriert.' }, 500);
 
+  var allowed = await checkRateLimit(env, 'notruf', request, 3, 600);
+  if (!allowed) {
+    return json({ error: 'Zu viele Notrufe von deiner Verbindung. Bitte warte ein paar Minuten und versuch es erneut.' }, 429);
+  }
+
   var data;
   try { data = await request.json(); } catch (e) { return json({ error: 'Ungültige Anfrage.' }, 400); }
 
@@ -190,17 +221,31 @@ async function handleNotruf(request, env) {
   var ort = String(data.ort || 'Nicht angegeben').slice(0, 200);
   var absender = String(data.absender || 'Unbekannt').slice(0, 100);
 
+  // Ping target is configurable: set NOTRUF_PING_ROLE_ID to a Discord role ID
+  // to ping that role specifically. Falls back to @here if not set.
+  var pingMention = '@here';
+  var allowedMentions = { parse: ['everyone'] };
+  if (env.NOTRUF_PING_ROLE_ID) {
+    pingMention = '<@&' + env.NOTRUF_PING_ROLE_ID + '>';
+    allowedMentions = { roles: [env.NOTRUF_PING_ROLE_ID], parse: [] };
+  }
+
   var payload = {
+    content: pingMention + ' 🚨 **Neuer Notruf eingegangen!**',
     username: 'HESSEN RP · Notruf',
+    allowed_mentions: allowedMentions,
     embeds: [{
-      title: '🚨 Admin-Notruf ausgelöst',
-      color: 0xFF2A44,
+      title: '🚨🚨 NOTRUF — SOFORT REAGIEREN 🚨🚨',
+      description: '**' + grund + '**',
+      color: 0xFF0000,
       fields: [
-        { name: 'Ausgelöst von', value: absender, inline: true },
-        { name: 'Ort / Situation', value: ort, inline: true },
-        { name: 'Grund', value: grund },
-        { name: 'Zeitpunkt', value: new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }) },
+        { name: '👤 Von', value: absender, inline: true },
+        { name: '📍 Ort / Situation', value: ort, inline: true },
+        { name: '\u200b', value: '\u200b', inline: false },
+        { name: '✅ Übernahme', value: 'Reagiere mit ✅ auf diese Nachricht, wenn du dich kümmerst — dann sehen alle sofort, dass jemand unterwegs ist.' },
       ],
+      footer: { text: 'HESSEN RP · Notrufsystem' },
+      timestamp: new Date().toISOString(),
     }],
   };
 
@@ -220,6 +265,11 @@ async function handleNotruf(request, env) {
 async function handleAusweis(request, env) {
   var webhook = env.DISCORD_WEBHOOK_AUSWEISE;
   if (!webhook) return json({ error: 'Ausweis-Webhook ist auf dem Server nicht konfiguriert.' }, 500);
+
+  var allowed = await checkRateLimit(env, 'ausweis', request, 5, 600);
+  if (!allowed) {
+    return json({ error: 'Zu viele Ausweis-Anfragen von deiner Verbindung. Bitte warte ein paar Minuten.' }, 429);
+  }
 
   var data;
   try { data = await request.json(); } catch (e) { return json({ error: 'Ungültige Anfrage.' }, 400); }

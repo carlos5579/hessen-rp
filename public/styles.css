@@ -68,6 +68,31 @@ nav.links a{ text-decoration:none; font-size:13.5px; font-family:'IBM Plex Mono'
 nav.links a:hover, nav.links a:focus-visible, nav.links a.active{ color:var(--ink); border-color:var(--red); text-shadow:0 0 10px var(--red-glow); }
 nav.links a.nav-notruf{ color:var(--red-2); }
 nav.links a.nav-notruf:hover, nav.links a.nav-notruf:focus-visible{ color:var(--red); }
+
+/* ---------- nav dropdown ---------- */
+.nav-dropdown{ position:relative; }
+.nav-dropdown-trigger{
+  background:none; border:none; padding:0; margin:0; cursor:pointer;
+  display:flex; align-items:center; gap:5px;
+  font-family:'IBM Plex Mono'; font-size:13.5px; letter-spacing:.04em; color:var(--ink-dim);
+  border-bottom:1px solid transparent; padding-bottom:2px; transition:.15s;
+}
+.nav-dropdown-trigger:hover, .nav-dropdown-trigger:focus-visible, .nav-dropdown.open .nav-dropdown-trigger{ color:var(--ink); border-color:var(--red); }
+.nav-dropdown-trigger .caret{ font-size:9px; transition:transform .15s; }
+.nav-dropdown.open .nav-dropdown-trigger .caret{ transform:rotate(180deg); }
+.nav-dropdown-menu{
+  position:absolute; top:calc(100% + 16px); left:50%; transform:translateX(-50%);
+  background:rgba(8,9,13,.98); backdrop-filter:blur(10px); border:1px solid var(--line);
+  min-width:200px; padding:8px; display:none; flex-direction:column; gap:2px; z-index:150;
+}
+.nav-dropdown.open .nav-dropdown-menu{ display:flex; }
+.nav-dropdown-menu a{
+  padding:10px 12px; font-size:13.5px; color:var(--ink-dim); text-decoration:none;
+  font-family:'IBM Plex Mono'; border-left:2px solid transparent; transition:.15s;
+}
+.nav-dropdown-menu a:hover, .nav-dropdown-menu a:focus-visible, .nav-dropdown-menu a.active{
+  color:#fff; border-color:var(--red); background:rgba(255,42,68,.07);
+}
 .header-actions{ display:flex; align-items:center; gap:16px; }
 .btn{
   display:inline-flex; align-items:center; gap:9px; font-family:'IBM Plex Mono'; font-weight:500; font-size:13.5px;
@@ -172,6 +197,12 @@ footer{ border-top:1px solid var(--line); padding:58px 0 32px; }
   .foot-grid{ grid-template-columns:1fr; gap:26px; }
   .card-grid{ grid-template-columns:1fr; }
   .field-row{ grid-template-columns:1fr; }
+  .nav-dropdown-trigger{ pointer-events:none; color:var(--ink); }
+  .nav-dropdown-trigger .caret{ display:none; }
+  .nav-dropdown-menu{
+    position:static; transform:none; display:flex !important;
+    border:none; background:none; padding:0 0 0 14px; backdrop-filter:none;
+  }
 }
 
 /* ---------- play / join button variant ---------- */

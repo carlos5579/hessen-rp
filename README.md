@@ -66,6 +66,16 @@ and Secrets** → **Add** → jeweils Typ **Secret**:
 im Admin-Bereich wird jetzt direkt gegen dieses Secret geprüft. Diese
 Zugangsphrase ist also gleichzeitig euer neues Admin-Passwort.
 
+**Optional:** `NOTRUF_PING_ROLE_ID` — pingt bei einem Notruf eine bestimmte
+Discord-Rolle (z. B. `@Admin`) statt `@here`. Kann als normale **Variable**
+(kein Secret nötig, Rollen-IDs sind nicht geheim) gesetzt werden:
+
+1. In Discord: **Einstellungen → Erweitert → Entwicklermodus** aktivieren
+2. Rechtsklick auf die gewünschte Rolle im Servermenü → **ID kopieren**
+3. Als Variable `NOTRUF_PING_ROLE_ID` mit dieser ID (nur die Zahl, ohne `<@&>`) hinzufügen
+
+Ohne diese Variable wird weiterhin `@here` gepingt (alle gerade online im Kanal).
+
 ### 5. Neu deployen
 
 Nach dem Setzen der Secrets: **Retry deployment** im Dashboard, oder einfach
@@ -141,9 +151,13 @@ Cloudflare nach dem Deploy ist meist einfacher.
 
 ## Bekannte Grenzen (bewusste Trade-offs)
 
-- **Kein Rate-Limiting** auf den `/api/*`-Routen — bei Missbrauch könnt ihr
-  über Cloudflare Turnstile oder Rate Limiting (Dashboard → Security)
-  nachrüsten.
+- **Einfaches IP-Rate-Limit** auf `/api/notruf` (3 pro 10 Min.) und
+  `/api/ausweis` (5 pro 10 Min.), gespeichert in KV. Das ist ein weicher,
+  bester-Versuch-Schutz (KV ist "eventually consistent", also nicht
+  hundertprozentig atomar) — reicht für eine normale Community, ist aber
+  keine harte Sicherheitsgarantie. Bei ernsthaftem Missbrauch (z. B. über
+  viele verschiedene IPs) könnt ihr zusätzlich Cloudflare Turnstile oder das
+  Rate-Limiting-Produkt im Dashboard (Security → WAF) davorschalten.
 - **Ein einziger Admin-Schlüssel** für alle Admins — kein individuelles
   Login pro Person. Für mehr Kontrolle könnte man später Cloudflare Access
   vor `/admin.html` schalten.
