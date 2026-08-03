@@ -92,16 +92,19 @@ function getTeamData() { return hessenrpApiGet('team'); }
 function getImmobilienData() { return hessenrpApiGet('immobilien'); }
 function getRegelwerkData() { return hessenrpApiGet('regelwerk'); }
 function getFraktionenData() { return hessenrpApiGet('fraktionen'); }
+function getServerlinksData() { return hessenrpApiGet('serverlinks'); }
 
 function saveTeamData(list, label) { return hessenrpApiSave('team', list, label); }
 function saveImmobilienData(list, label) { return hessenrpApiSave('immobilien', list, label); }
 function saveRegelwerkData(list, label) { return hessenrpApiSave('regelwerk', list, label); }
 function saveFraktionenData(list, label) { return hessenrpApiSave('fraktionen', list, label); }
+function saveServerlinksData(list, label) { return hessenrpApiSave('serverlinks', list, label); }
 
 function resetTeamData() { return hessenrpApiReset('team'); }
 function resetImmobilienData() { return hessenrpApiReset('immobilien'); }
 function resetRegelwerkData() { return hessenrpApiReset('regelwerk'); }
 function resetFraktionenData() { return hessenrpApiReset('fraktionen'); }
+function resetServerlinksData() { return hessenrpApiReset('serverlinks'); }
 
 async function hessenrpUploadImage(file) {
   try {
@@ -145,12 +148,12 @@ async function hessenrpGetStrafen(robloxId) {
   }
 }
 
-async function hessenrpAddStrafe(robloxId, typ, grund, username) {
+async function hessenrpAddStrafe(robloxId, typ, grund, username, dauer) {
   try {
     const res = await fetch('/api/roblox-strafen/' + robloxId, {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, hessenrpAuthHeader()),
-      body: JSON.stringify({ typ, grund, username }),
+      body: JSON.stringify({ typ, grund, username, dauer }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || 'Speichern fehlgeschlagen.' };

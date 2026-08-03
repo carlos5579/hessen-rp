@@ -36,7 +36,7 @@
 // attempts / 15 min. This is a soft, best-effort limit (KV is eventually
 // consistent) — good enough for a small community, not a hard guarantee.
 
-const DATA_TYPES = ['team', 'immobilien', 'regelwerk', 'fraktionen'];
+const DATA_TYPES = ['team', 'immobilien', 'regelwerk', 'fraktionen', 'serverlinks'];
 
 const DEFAULTS = {
   team: [
@@ -52,6 +52,10 @@ const DEFAULTS = {
     { id: 'i2', titel: 'Reihenhaus am Stadtrand', stadt: 'Wiesbaden', preis: 265000, zimmer: 5, flaeche: 130, status: 'verfügbar', beschreibung: 'Familienfreundliches Reihenhaus mit kleinem Garten.', bild: '' },
     { id: 'i3', titel: 'Loft im Industriegebiet', stadt: 'Kassel', preis: 210000, zimmer: 2, flaeche: 78, status: 'reserviert', beschreibung: 'Modernes Loft mit offener Küche und hohen Decken.', bild: '' },
     { id: 'i4', titel: 'Stadtvilla mit Garage', stadt: 'Darmstadt', preis: 420000, zimmer: 6, flaeche: 210, status: 'verkauft', beschreibung: 'Repräsentative Villa mit Doppelgarage und großem Grundstück.', bild: '' },
+  ],
+  serverlinks: [
+    { id: 'sl1', label: 'Jetzt spielen', url: 'https://www.roblox.com/share?v=v2&code=5ihdm3h6x9zjz6', beschreibung: 'Hauptserver mit RP-Paket' },
+    { id: 'sl2', label: 'Server 2', url: 'https://www.roblox.com/share?v=v2&code=5ihdm3h6n1db5p', beschreibung: 'Alternativer Server ohne RP-Paket' },
   ],
   fraktionen: [
     { id: 'f1', name: 'Polizei Hessen', kuerzel: 'LPH', typ: 'Behörde', leitung: 'Mara', status: 'offen', slots: '12', beschreibung: 'Zuständig für Recht und Ordnung im gesamten Bundesland.', raenge: 'Anwärter, Polizeimeister, Polizeiobermeister, Kommissar, Revierleiter' },
@@ -102,8 +106,8 @@ function json(obj, status, extraHeaders) {
   });
 }
 
-var ALL_PERMISSIONS = { team: true, immobilien: true, regelwerk: true, fraktionen: true, roblox: true, strafen: true, manageAdmins: true };
-var TYPE_LABELS = { team: 'Team', immobilien: 'Immobilien', regelwerk: 'Regelwerk', fraktionen: 'Fraktionen' };
+var ALL_PERMISSIONS = { team: true, immobilien: true, regelwerk: true, fraktionen: true, roblox: true, strafen: true, manageAdmins: true, serverlinks: true };
+var TYPE_LABELS = { team: 'Team', immobilien: 'Immobilien', regelwerk: 'Regelwerk', fraktionen: 'Fraktionen', serverlinks: 'Server-Links' };
 
 // Constant-time string comparison so an attacker can't infer a secret
 // byte-by-byte from response timing differences.
@@ -407,14 +411,19 @@ async function handleAddStrafe(robloxId, request, env) {
   try { data = await request.json(); } catch (e) { return json({ error: 'Ungültige Anfrage.' }, 400); }
   var typ = String(data.typ || '').trim();
   if (['warn', 'kick', 'ban'].indexOf(typ) === -1) return json({ error: 'Ungültiger Strafentyp.' }, 400);
-  var grund = String(data.grund || '').slice(0, 300);
+  var grund = String(data.grund || '').trim().slice(0, 300);
+  if (!grund) return json({ error: 'Bitte einen Grund angeben.' }, 400);
+  var dauer = String(data.dauer || '').trim().slice(0, 100);
   var username = String(data.username || '').slice(0, 50);
 
   var list = await env.DATA_KV.get('strafen:' + robloxId, 'json');
   list = Array.isArray(list) ? list : [];
-  list.unshift({ id: 's' + Date.now(), typ: typ, grund: grund, von: session.username, datum: new Date().toISOString() });
+  list.unshift({ id: 's' + Date.now(), typ: typ, grund: grund, dauer: dauer, von: session.username, datum: new Date().toISOString() });
   await env.DATA_KV.put('strafen:' + robloxId, JSON.stringify(list));
-  await postAuditLog(env, session.username, 'Strafe eingetragen (' + typ + ') für Roblox-Nutzer ' + (username || robloxId) + (grund ? ': ' + grund : ''));
+
+  var typLabel = { warn: 'Verwarnung', kick: 'Kick', ban: 'Bann' }[typ] || typ;
+  var logLine = 'Strafe eingetragen (' + typLabel + (dauer ? ', Dauer: ' + dauer : '') + ') für Roblox-Nutzer ' + (username || robloxId) + ': ' + grund;
+  await postAuditLog(env, session.username, logLine);
   return json({ ok: true });
 }
 
@@ -493,10 +502,10 @@ async function handleRobloxLookup(request, env) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ usernames: [username], excludeBannedUsers: true }),
     });
-    if (!userRes.ok) return json({ error: 'Roblox-API nicht erreichbar.' }, 502);
+    if (!userRes.ok) return json({ error: 'Roblox-API nicht erreichbar (Status ' + userRes.status + '). Bitte kurz erneut versuchen.' }, 502);
     var userData = await userRes.json();
     var user = userData.data && userData.data[0];
-    if (!user) return json({ error: 'Roblox-Nutzer nicht gefunden.' }, 404);
+    if (!user) return json({ error: 'Roblox-Nutzer "' + username + '" nicht gefunden.' }, 404);
 
     var avatarUrl = null;
     try {
@@ -521,7 +530,7 @@ async function handleRobloxLookup(request, env) {
       profileUrl: 'https://www.roblox.com/users/' + user.id + '/profile',
     });
   } catch (err) {
-    return json({ error: 'Roblox-API nicht erreichbar.' }, 502);
+    return json({ error: 'Roblox-API nicht erreichbar (' + (err && err.message ? err.message : 'unbekannter Fehler') + ').' }, 502);
   }
 }
 
