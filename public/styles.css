@@ -156,6 +156,7 @@ footer{ border-top:1px solid var(--line); padding:58px 0 32px; }
 .card-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); }
 .person-card{ background:var(--bg); padding:30px 26px; text-align:left; }
 .person-avatar{ width:56px; height:56px; border:1px solid var(--line-red); display:flex; align-items:center; justify-content:center; font-family:'Rajdhani'; font-weight:700; font-size:20px; color:var(--red-2); margin-bottom:18px; background:rgba(255,42,68,.06); }
+.person-avatar-img{ object-fit:cover; border-radius:4px; }
 .person-card h3{ font-size:18px; text-transform:none; letter-spacing:0; color:#fff; margin-bottom:4px; }
 .person-role{ font-family:'IBM Plex Mono'; font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--red-2); margin-bottom:12px; }
 .person-card p{ color:var(--ink-dim); font-size:13.8px; margin:0; }

@@ -2,29 +2,39 @@
 //
 // Responsibilities:
 //   1. Serve the static site from /public (via the ASSETS binding)
-//   2. GET/POST /api/data/:type   — team / immobilien / regelwerk / fraktionen,
-//      stored in Cloudflare KV so all visitors see the same data (no more
-//      per-browser localStorage)
-//   3. POST /api/upload-image     — Immobilien photos, stored as base64 in
-//      Cloudflare KV (no R2 needed — simpler setup, no billing required)
-//   4. POST /api/notruf           — public panic button -> Discord webhook
-//      (citizens calling for an admin, so intentionally no login required)
-//   5. POST /api/ausweis          — Bürgerausweis -> Discord webhook
-//   6. POST /api/admin/verify     — checks the admin passphrase against env.ADMIN_KEY
+//   2. GET/POST /api/data/:type      — team / immobilien / regelwerk / fraktionen
+//   3. POST /api/upload-image        — Immobilien photos, stored as base64 in KV
+//   4. POST /api/notruf              — public panic button -> Discord webhook
+//   5. POST /api/ausweis             — Bürgerausweis -> Discord webhook
+//   6. POST /api/admin/login         — username+password OR master ADMIN_KEY -> session token
+//   7. GET/POST /api/admin/accounts  — manage admin accounts + their permissions
+//   8. GET/POST /api/roblox-strafen/:id — warn/kick/ban history per Roblox user
+//   9. POST /api/roblox-lookup       — Roblox username -> id/displayName/avatar
+//
+// Auth model: individual admin accounts (username + password, hashed with
+// salted SHA-256) each have their own permission flags (team, immobilien,
+// regelwerk, fraktionen, roblox, strafen, manageAdmins). Logging in with an
+// empty username + the ADMIN_KEY secret gives a superadmin session with all
+// permissions — that's also how the very first admin account gets created.
+// Sessions are opaque tokens stored in KV with a 12h TTL.
+//
+// Every admin write action posts a short line to DISCORD_WEBHOOK_ADMINLOG
+// (optional) so the team has a change history in Discord.
 //
 // Required bindings/secrets (see README.md for exact setup steps):
 //   - KV namespace  bound as DATA_KV
-//   - Secret        ADMIN_KEY               (your own admin passphrase)
+//   - Secret        ADMIN_KEY               (master/owner passphrase)
 //   - Secret        DISCORD_WEBHOOK_NOTRUF
 //   - Secret        DISCORD_WEBHOOK_AUSWEISE
+//   - Secret        DISCORD_WEBHOOK_ADMINLOG (optional — private admin change log)
 //   - Variable      NOTRUF_PING_ROLE_ID     (optional — Discord role ID to
 //                                            ping on /api/notruf; falls back
 //                                            to @here if not set)
 //
 // Abuse protection: /api/notruf and /api/ausweis are rate-limited per IP via
-// KV (3 notrufe / 10 min, 5 ausweise / 10 min). This is a soft, best-effort
-// limit (KV is eventually consistent) — good enough for a small community,
-// not a hard security guarantee.
+// KV (3 notrufe / 10 min, 5 ausweise / 10 min), admin login is limited to 8
+// attempts / 15 min. This is a soft, best-effort limit (KV is eventually
+// consistent) — good enough for a small community, not a hard guarantee.
 
 const DATA_TYPES = ['team', 'immobilien', 'regelwerk', 'fraktionen'];
 
@@ -92,11 +102,65 @@ function json(obj, status, extraHeaders) {
   });
 }
 
-function isAuthorized(request, env) {
-  if (!env.ADMIN_KEY) return false;
+var ALL_PERMISSIONS = { team: true, immobilien: true, regelwerk: true, fraktionen: true, roblox: true, strafen: true, manageAdmins: true };
+var TYPE_LABELS = { team: 'Team', immobilien: 'Immobilien', regelwerk: 'Regelwerk', fraktionen: 'Fraktionen' };
+
+// Constant-time string comparison so an attacker can't infer a secret
+// byte-by-byte from response timing differences.
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  var maxLen = Math.max(a.length, b.length);
+  var result = a.length === b.length ? 0 : 1;
+  for (var i = 0; i < maxLen; i++) {
+    var charA = i < a.length ? a.charCodeAt(i) : 0;
+    var charB = i < b.length ? b.charCodeAt(i) : 0;
+    result |= charA ^ charB;
+  }
+  return result === 0;
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+function randomHex(len) {
+  return bytesToHex(crypto.getRandomValues(new Uint8Array(len)));
+}
+async function sha256Hex(str) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return bytesToHex(new Uint8Array(buf));
+}
+// Salted SHA-256 — not bcrypt-level, but far better than plaintext, no
+// external dependency, and combined with login rate-limiting is solid for
+// this project's scope.
+async function hashPassword(password, salt) {
+  return sha256Hex(salt + ':' + password);
+}
+
+async function getAdmins(env) {
+  if (!env.DATA_KV) return [];
+  var list = await env.DATA_KV.get('admins', 'json');
+  return Array.isArray(list) ? list : [];
+}
+
+async function createSession(env, info) {
+  var token = randomHex(32);
+  var session = Object.assign({}, info, { expires: Date.now() + 12 * 3600 * 1000 });
+  await env.DATA_KV.put('session:' + token, JSON.stringify(session), { expirationTtl: 12 * 3600 });
+  return json({ ok: true, token: token, username: info.username, isSuperAdmin: info.isSuperAdmin, permissions: info.permissions });
+}
+
+// Looks up the bearer token as an active session. Returns null if missing/expired.
+async function authenticate(request, env) {
+  if (!env.DATA_KV) return null;
   var auth = request.headers.get('Authorization') || '';
   var token = auth.replace(/^Bearer\s+/i, '');
-  return !!token && token === env.ADMIN_KEY;
+  if (!token) return null;
+  return await env.DATA_KV.get('session:' + token, 'json');
+}
+function can(session, perm) {
+  if (!session) return false;
+  if (session.isSuperAdmin) return true;
+  return !!(session.permissions && session.permissions[perm]);
 }
 
 // Simple IP-based rate limiter backed by KV (fail-open if KV isn't configured,
@@ -116,9 +180,120 @@ async function checkRateLimit(env, bucket, request, limit, windowSeconds) {
   return true;
 }
 
-async function handleAdminVerify(request, env) {
-  if (!env.ADMIN_KEY) return json({ error: 'ADMIN_KEY ist auf dem Server nicht konfiguriert.' }, 500);
-  if (!isAuthorized(request, env)) return json({ error: 'Falsche Zugangsphrase.' }, 401);
+// Posts a short change-log entry to Discord. Best-effort — never throws,
+// so a logging hiccup can't break the actual admin action.
+async function postAuditLog(env, actor, message) {
+  var webhook = env.DISCORD_WEBHOOK_ADMINLOG;
+  if (!webhook) return;
+  try {
+    await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'HESSEN RP · Änderungslog',
+        embeds: [{
+          description: '**' + actor + '** — ' + message,
+          color: 0x8991A3,
+          timestamp: new Date().toISOString(),
+        }],
+      }),
+    });
+  } catch (e) {
+    // ignore — logging must never block the real action
+  }
+}
+
+async function handleAdminLogin(request, env) {
+  var allowed = await checkRateLimit(env, 'adminlogin', request, 8, 900);
+  if (!allowed) return json({ error: 'Zu viele Versuche. Bitte warte ein paar Minuten.' }, 429);
+  if (!env.DATA_KV) return json({ error: 'DATA_KV ist auf dem Server nicht konfiguriert.' }, 500);
+
+  var data;
+  try { data = await request.json(); } catch (e) { return json({ error: 'Ungültige Anfrage.' }, 400); }
+  var username = String(data.username || '').trim();
+  var password = String(data.password || '');
+
+  // Empty username = master login with the ADMIN_KEY (full access, no
+  // account needed — this is how you create the very first admin account).
+  if (!username) {
+    if (!env.ADMIN_KEY || !password || !timingSafeEqual(password, env.ADMIN_KEY)) {
+      return json({ error: 'Falsche Zugangsphrase.' }, 401);
+    }
+    return createSession(env, { adminId: 'owner', username: 'Serverleitung', isSuperAdmin: true, permissions: ALL_PERMISSIONS });
+  }
+
+  var accounts = await getAdmins(env);
+  var account = accounts.find(function (a) { return a.username.toLowerCase() === username.toLowerCase(); });
+  if (!account) return json({ error: 'Nutzername oder Passwort falsch.' }, 401);
+  var hash = await hashPassword(password, account.salt);
+  if (!timingSafeEqual(hash, account.passwordHash)) return json({ error: 'Nutzername oder Passwort falsch.' }, 401);
+  return createSession(env, { adminId: account.id, username: account.username, isSuperAdmin: false, permissions: account.permissions || {} });
+}
+
+async function handleGetAdmins(request, env) {
+  var session = await authenticate(request, env);
+  if (!can(session, 'manageAdmins')) return json({ error: 'Nicht autorisiert.' }, 401);
+  var accounts = await getAdmins(env);
+  return json(accounts.map(function (a) { return { id: a.id, username: a.username, permissions: a.permissions, createdAt: a.createdAt }; }));
+}
+
+async function handleSaveAdmin(request, env) {
+  var session = await authenticate(request, env);
+  if (!can(session, 'manageAdmins')) return json({ error: 'Nicht autorisiert.' }, 401);
+  if (!env.DATA_KV) return json({ error: 'DATA_KV ist auf dem Server nicht konfiguriert.' }, 500);
+
+  var data;
+  try { data = await request.json(); } catch (e) { return json({ error: 'Ungültige Anfrage.' }, 400); }
+  var username = String(data.username || '').trim();
+  if (!username) return json({ error: 'Bitte einen Nutzernamen angeben.' }, 400);
+
+  var accounts = await getAdmins(env);
+  var editId = data.id;
+  var idx = accounts.findIndex(function (a) { return a.id === editId; });
+  var permissions = data.permissions && typeof data.permissions === 'object' ? data.permissions : {};
+  var entry;
+
+  if (idx > -1) {
+    entry = accounts[idx];
+    entry.username = username;
+    entry.permissions = permissions;
+    if (data.password) {
+      var salt = randomHex(16);
+      entry.salt = salt;
+      entry.passwordHash = await hashPassword(data.password, salt);
+    }
+    accounts[idx] = entry;
+  } else {
+    if (!data.password) return json({ error: 'Bitte ein Passwort vergeben.' }, 400);
+    var newSalt = randomHex(16);
+    entry = {
+      id: 'a' + Date.now(),
+      username: username,
+      salt: newSalt,
+      passwordHash: await hashPassword(data.password, newSalt),
+      permissions: permissions,
+      createdAt: new Date().toISOString(),
+    };
+    accounts.push(entry);
+  }
+
+  await env.DATA_KV.put('admins', JSON.stringify(accounts));
+  await postAuditLog(env, session.username, (idx > -1 ? 'Admin-Konto bearbeitet: ' : 'Admin-Konto erstellt: ') + username);
+  return json({ ok: true });
+}
+
+async function handleDeleteAdmin(request, env) {
+  var session = await authenticate(request, env);
+  if (!can(session, 'manageAdmins')) return json({ error: 'Nicht autorisiert.' }, 401);
+  if (!env.DATA_KV) return json({ error: 'DATA_KV ist auf dem Server nicht konfiguriert.' }, 500);
+
+  var data;
+  try { data = await request.json(); } catch (e) { return json({ error: 'Ungültige Anfrage.' }, 400); }
+  var accounts = await getAdmins(env);
+  var target = accounts.find(function (a) { return a.id === data.id; });
+  accounts = accounts.filter(function (a) { return a.id !== data.id; });
+  await env.DATA_KV.put('admins', JSON.stringify(accounts));
+  if (target) await postAuditLog(env, session.username, 'Admin-Konto gelöscht: ' + target.username);
   return json({ ok: true });
 }
 
@@ -135,8 +310,11 @@ async function handleGetData(type, env) {
 
 async function handleSaveData(type, request, env) {
   if (DATA_TYPES.indexOf(type) === -1) return json({ error: 'Unbekannter Datentyp.' }, 404);
-  if (!isAuthorized(request, env)) return json({ error: 'Nicht autorisiert.' }, 401);
+  var session = await authenticate(request, env);
+  if (!can(session, type)) return json({ error: 'Nicht autorisiert.' }, 401);
   if (!env.DATA_KV) return json({ error: 'DATA_KV ist auf dem Server nicht konfiguriert.' }, 500);
+  var allowed = await checkRateLimit(env, 'adminwrite', request, 60, 600);
+  if (!allowed) return json({ error: 'Zu viele Änderungen in kurzer Zeit. Bitte kurz warten.' }, 429);
 
   var list;
   try {
@@ -147,20 +325,27 @@ async function handleSaveData(type, request, env) {
   if (!Array.isArray(list)) return json({ error: 'Erwartet ein Array.' }, 400);
 
   await env.DATA_KV.put(type, JSON.stringify(list));
+  var actionLabel = request.headers.get('X-Action-Label') || (TYPE_LABELS[type] + ' aktualisiert');
+  await postAuditLog(env, session.username, actionLabel);
   return json({ ok: true });
 }
 
 async function handleResetData(type, request, env) {
   if (DATA_TYPES.indexOf(type) === -1) return json({ error: 'Unbekannter Datentyp.' }, 404);
-  if (!isAuthorized(request, env)) return json({ error: 'Nicht autorisiert.' }, 401);
+  var session = await authenticate(request, env);
+  if (!can(session, type)) return json({ error: 'Nicht autorisiert.' }, 401);
   if (!env.DATA_KV) return json({ error: 'DATA_KV ist auf dem Server nicht konfiguriert.' }, 500);
   await env.DATA_KV.put(type, JSON.stringify(DEFAULTS[type]));
+  await postAuditLog(env, session.username, TYPE_LABELS[type] + ' auf Standard zurückgesetzt');
   return json({ ok: true });
 }
 
 async function handleUploadImage(request, env) {
-  if (!isAuthorized(request, env)) return json({ error: 'Nicht autorisiert.' }, 401);
+  var session = await authenticate(request, env);
+  if (!can(session, 'immobilien')) return json({ error: 'Nicht autorisiert.' }, 401);
   if (!env.DATA_KV) return json({ error: 'DATA_KV ist auf dem Server nicht konfiguriert.' }, 500);
+  var uploadAllowed = await checkRateLimit(env, 'upload', request, 20, 600);
+  if (!uploadAllowed) return json({ error: 'Zu viele Uploads in kurzer Zeit. Bitte kurz warten.' }, 429);
 
   var contentType = request.headers.get('Content-Type') || '';
   if (contentType.indexOf('multipart/form-data') === -1) {
@@ -174,9 +359,9 @@ async function handleUploadImage(request, env) {
   // so keep a conservative cap well under KV's per-value limit.
   if (file.size > 4 * 1024 * 1024) return json({ error: 'Bild zu groß (max. 4 MB).' }, 413);
 
-  var allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+  var allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
   var fileType = file.type || 'application/octet-stream';
-  if (allowed.indexOf(fileType) === -1) return json({ error: 'Nur PNG, JPEG, WEBP oder GIF erlaubt.' }, 415);
+  if (allowedTypes.indexOf(fileType) === -1) return json({ error: 'Nur PNG, JPEG, WEBP oder GIF erlaubt.' }, 415);
 
   var buffer = await file.arrayBuffer();
   var bytes = new Uint8Array(buffer);
@@ -203,6 +388,34 @@ async function handleGetImage(id, env) {
       'Cache-Control': 'public, max-age=31536000, immutable',
     },
   });
+}
+
+async function handleGetStrafen(robloxId, request, env) {
+  var session = await authenticate(request, env);
+  if (!can(session, 'roblox') && !can(session, 'strafen')) return json({ error: 'Nicht autorisiert.' }, 401);
+  if (!env.DATA_KV) return json([]);
+  var list = await env.DATA_KV.get('strafen:' + robloxId, 'json');
+  return json(Array.isArray(list) ? list : []);
+}
+
+async function handleAddStrafe(robloxId, request, env) {
+  var session = await authenticate(request, env);
+  if (!can(session, 'strafen')) return json({ error: 'Nicht autorisiert.' }, 401);
+  if (!env.DATA_KV) return json({ error: 'DATA_KV ist auf dem Server nicht konfiguriert.' }, 500);
+
+  var data;
+  try { data = await request.json(); } catch (e) { return json({ error: 'Ungültige Anfrage.' }, 400); }
+  var typ = String(data.typ || '').trim();
+  if (['warn', 'kick', 'ban'].indexOf(typ) === -1) return json({ error: 'Ungültiger Strafentyp.' }, 400);
+  var grund = String(data.grund || '').slice(0, 300);
+  var username = String(data.username || '').slice(0, 50);
+
+  var list = await env.DATA_KV.get('strafen:' + robloxId, 'json');
+  list = Array.isArray(list) ? list : [];
+  list.unshift({ id: 's' + Date.now(), typ: typ, grund: grund, von: session.username, datum: new Date().toISOString() });
+  await env.DATA_KV.put('strafen:' + robloxId, JSON.stringify(list));
+  await postAuditLog(env, session.username, 'Strafe eingetragen (' + typ + ') für Roblox-Nutzer ' + (username || robloxId) + (grund ? ': ' + grund : ''));
+  return json({ ok: true });
 }
 
 async function handleNotruf(request, env) {
@@ -259,6 +472,56 @@ async function handleNotruf(request, env) {
     return json({ ok: true });
   } catch (err) {
     return json({ error: 'Verbindung zu Discord fehlgeschlagen.' }, 502);
+  }
+}
+
+async function handleRobloxLookup(request, env) {
+  var session = await authenticate(request, env);
+  if (!can(session, 'roblox')) return json({ error: 'Nicht autorisiert.' }, 401);
+  var allowed = await checkRateLimit(env, 'roblox', request, 30, 600);
+  if (!allowed) return json({ error: 'Zu viele Roblox-Anfragen in kurzer Zeit. Bitte kurz warten.' }, 429);
+
+  var data;
+  try { data = await request.json(); } catch (e) { return json({ error: 'Ungültige Anfrage.' }, 400); }
+  var username = String(data.username || '').trim();
+  if (!username) return json({ error: 'Bitte einen Roblox-Benutzernamen angeben.' }, 400);
+  if (username.length > 50) return json({ error: 'Benutzername zu lang.' }, 400);
+
+  try {
+    var userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usernames: [username], excludeBannedUsers: true }),
+    });
+    if (!userRes.ok) return json({ error: 'Roblox-API nicht erreichbar.' }, 502);
+    var userData = await userRes.json();
+    var user = userData.data && userData.data[0];
+    if (!user) return json({ error: 'Roblox-Nutzer nicht gefunden.' }, 404);
+
+    var avatarUrl = null;
+    try {
+      var avatarRes = await fetch(
+        'https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=' + user.id + '&size=150x150&format=Png&isCircular=false'
+      );
+      if (avatarRes.ok) {
+        var avatarData = await avatarRes.json();
+        var avatar = avatarData.data && avatarData.data[0];
+        if (avatar && avatar.state === 'Completed') avatarUrl = avatar.imageUrl;
+      }
+    } catch (e) {
+      // avatar fetch failing shouldn't block returning the user info
+    }
+
+    return json({
+      ok: true,
+      id: user.id,
+      username: user.name,
+      displayName: user.displayName,
+      avatarUrl: avatarUrl,
+      profileUrl: 'https://www.roblox.com/users/' + user.id + '/profile',
+    });
+  } catch (err) {
+    return json({ error: 'Roblox-API nicht erreichbar.' }, 502);
   }
 }
 
@@ -325,7 +588,10 @@ export default {
     var path = url.pathname;
     var method = request.method;
 
-    if (method === 'POST' && path === '/api/admin/verify') return handleAdminVerify(request, env);
+    if (method === 'POST' && path === '/api/admin/login') return handleAdminLogin(request, env);
+    if (method === 'GET' && path === '/api/admin/accounts') return handleGetAdmins(request, env);
+    if (method === 'POST' && path === '/api/admin/accounts') return handleSaveAdmin(request, env);
+    if (method === 'POST' && path === '/api/admin/accounts/delete') return handleDeleteAdmin(request, env);
 
     var dataMatch = path.match(/^\/api\/data\/([a-z]+)$/);
     if (dataMatch) {
@@ -338,6 +604,13 @@ export default {
     if (resetMatch && method === 'POST') return handleResetData(resetMatch[1], request, env);
 
     if (method === 'POST' && path === '/api/upload-image') return handleUploadImage(request, env);
+    if (method === 'POST' && path === '/api/roblox-lookup') return handleRobloxLookup(request, env);
+
+    var strafenMatch = path.match(/^\/api\/roblox-strafen\/(\d+)$/);
+    if (strafenMatch) {
+      if (method === 'GET') return handleGetStrafen(strafenMatch[1], request, env);
+      if (method === 'POST') return handleAddStrafe(strafenMatch[1], request, env);
+    }
 
     var imageMatch = path.match(/^\/api\/image\/(.+)$/);
     if (imageMatch && method === 'GET') return handleGetImage(imageMatch[1], env);

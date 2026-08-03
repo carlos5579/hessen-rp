@@ -103,11 +103,13 @@
     }
     grid.innerHTML = team.map(m => `
       <div class="person-card">
-        <div class="person-avatar">${initials(m.name)}</div>
-        <h3>${m.name}</h3>
-        <div class="person-role">${m.rolle}</div>
-        <p>${m.bio || ''}</p>
-        <span class="person-tag">${m.rang} · seit ${m.seit}</span>
+        ${m.avatarUrl
+          ? `<img class="person-avatar person-avatar-img" src="${escapeHtml(m.avatarUrl)}" alt="${escapeHtml(m.name)}">`
+          : `<div class="person-avatar">${escapeHtml(initials(m.name))}</div>`}
+        <h3>${escapeHtml(m.name)}</h3>
+        <div class="person-role">${escapeHtml(m.rolle)}</div>
+        <p>${escapeHtml(m.bio || '')}</p>
+        <span class="person-tag">${escapeHtml(m.rang)} · seit ${escapeHtml(m.seit)}</span>
       </div>
     `).join('');
   }

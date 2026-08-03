@@ -13,6 +13,7 @@
   .admin-wrap{ padding:56px 0 100px; }
   .admin-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:36px; flex-wrap:wrap; gap:16px; }
   .admin-head h1{ font-size:clamp(30px,4vw,42px); }
+  .admin-head .who{ font-family:'IBM Plex Mono'; font-size:12.5px; color:var(--ink-dim); margin-top:6px; }
   .tab-pane{ display:none; }
   .tab-pane.active{ display:block; }
   .row-name{ font-weight:600; color:#fff; }
@@ -22,6 +23,17 @@
   .img-upload-row{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
   .img-preview{ width:90px; height:60px; object-fit:cover; border:1px solid var(--line); background:var(--bg); }
   .img-upload-status{ font-family:'IBM Plex Mono'; font-size:12px; color:var(--ink-dim); }
+  .perm-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:10px 0 18px; }
+  .perm-check{ display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono'; font-size:12.5px; color:var(--ink-dim); border:1px solid var(--line); padding:9px 12px; cursor:pointer; }
+  .perm-check input{ accent-color:var(--red); }
+  .perm-badges{ display:flex; gap:6px; flex-wrap:wrap; }
+  .perm-badge{ font-family:'IBM Plex Mono'; font-size:10.5px; color:var(--ink-dim); border:1px solid var(--line); padding:2px 7px; }
+  .strafe-badge{ display:inline-block; font-family:'IBM Plex Mono'; font-size:11px; padding:3px 9px; text-transform:uppercase; letter-spacing:.05em; }
+  .strafe-badge.warn{ color:#FFC24B; border:1px solid #FFC24B; }
+  .strafe-badge.kick{ color:#FF8A3D; border:1px solid #FF8A3D; }
+  .strafe-badge.ban{ color:var(--red-2); border:1px solid var(--red-2); }
+  .strafe-row{ border:1px solid var(--line); padding:14px 16px; margin-bottom:10px; }
+  .strafe-row .meta{ font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--ink-dim); margin-top:6px; }
 </style>
 </head>
 <body>
@@ -57,13 +69,17 @@
   <div class="wrap admin-gate" id="gate">
     <span class="eyebrow">Zugriff</span>
     <h1 style="margin:16px 0 20px;">Adminbereich</h1>
-    <p style="color:var(--ink-dim); font-size:14.5px; margin-bottom:26px;">Nur für Serverleitung und Team. Gib die Zugangsphrase ein.</p>
+    <p style="color:var(--ink-dim); font-size:14.5px; margin-bottom:26px;">Mit eigenem Account anmelden, oder Nutzername freilassen und die Serverleitungs-Zugangsphrase eingeben.</p>
     <div class="field">
-      <label for="passphrase">Zugangsphrase</label>
-      <input type="text" id="passphrase" placeholder="••••••••">
+      <label for="login-username">Nutzername (leer lassen für Serverleitung)</label>
+      <input type="text" id="login-username" placeholder="z. B. mara">
+    </div>
+    <div class="field">
+      <label for="login-password">Passwort / Zugangsphrase</label>
+      <input type="password" id="login-password">
     </div>
     <div class="actions" style="justify-content:center;">
-      <button class="btn btn-primary" id="btn-unlock" type="button">Entsperren</button>
+      <button class="btn btn-primary" id="btn-unlock" type="button">Anmelden</button>
     </div>
     <p class="row-sub" id="gate-error" style="margin-top:14px; color:var(--red-2); display:none;"></p>
   </div>
@@ -74,19 +90,22 @@
       <div>
         <span class="eyebrow">Verwaltung</span>
         <h1>Adminbereich</h1>
+        <div class="who" id="who-am-i"></div>
       </div>
-      <button class="btn btn-ghost btn-sm" id="btn-lock" type="button">Sperren</button>
+      <button class="btn btn-ghost btn-sm" id="btn-lock" type="button">Abmelden</button>
     </div>
 
     <div class="live-note">
-      <b>●</b> Änderungen hier sind zentral gespeichert (Cloudflare KV) und sofort für <b>alle Besucher</b> sichtbar — kein Code-Export mehr nötig.
+      <b>●</b> Änderungen hier sind zentral gespeichert (Cloudflare KV) und sofort für <b>alle Besucher</b> sichtbar.
     </div>
 
     <div class="admin-tabs">
-      <button class="admin-tab active" data-tab="team">Team</button>
-      <button class="admin-tab" data-tab="immobilien">Immobilien</button>
-      <button class="admin-tab" data-tab="regelwerk">Regelwerk</button>
-      <button class="admin-tab" data-tab="fraktionen">Fraktionen</button>
+      <button class="admin-tab active" data-tab="team" data-perm="team">Team</button>
+      <button class="admin-tab" data-tab="immobilien" data-perm="immobilien">Immobilien</button>
+      <button class="admin-tab" data-tab="regelwerk" data-perm="regelwerk">Regelwerk</button>
+      <button class="admin-tab" data-tab="fraktionen" data-perm="fraktionen">Fraktionen</button>
+      <button class="admin-tab" data-tab="roblox" data-perm="roblox">Roblox-Lookup</button>
+      <button class="admin-tab" data-tab="accounts" data-perm="manageAdmins">Accounts</button>
     </div>
 
     <!-- TEAM TAB -->
@@ -103,6 +122,17 @@
           <div class="field"><label>Seit</label><input type="text" id="team-seit" placeholder="z. B. 2026"></div>
         </div>
         <div class="field"><label>Bio</label><textarea id="team-bio"></textarea></div>
+        <div class="field">
+          <label>Roblox-Username (optional)</label>
+          <div class="img-upload-row">
+            <img id="team-avatar-preview" class="img-preview" style="display:none; border-radius:50%;" alt="Avatar-Vorschau">
+            <input type="text" id="team-roblox-username" placeholder="z. B. Builderman">
+            <button class="btn btn-ghost btn-sm" id="team-roblox-fetch" type="button">Avatar laden</button>
+            <span class="img-upload-status" id="team-roblox-status"></span>
+          </div>
+          <input type="hidden" id="team-roblox-id">
+          <input type="hidden" id="team-avatar-url">
+        </div>
         <div class="actions">
           <button class="btn btn-primary" id="team-save" type="button">Speichern</button>
           <button class="btn btn-ghost" id="team-cancel" type="button" style="display:none;">Abbrechen</button>
@@ -239,6 +269,72 @@
         <button class="btn btn-ghost btn-sm" id="frak-reset" type="button">Auf Standard zurücksetzen</button>
       </div>
     </div>
+
+    <!-- ROBLOX LOOKUP TAB -->
+    <div class="tab-pane" id="tab-roblox">
+      <div class="admin-form">
+        <h3>Roblox-Nutzer suchen</h3>
+        <div class="field-row">
+          <div class="field" style="flex:1;"><label>Roblox-Username</label><input type="text" id="rbx-username" placeholder="z. B. Builderman"></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="rbx-search" type="button">Suchen</button>
+        </div>
+      </div>
+      <div id="rbx-result"></div>
+
+      <div id="rbx-strafen-section" style="display:none; margin-top:36px;">
+        <h3 style="font-family:'Rajdhani'; text-transform:uppercase; font-size:19px; margin-bottom:16px;">Verlauf (Warns / Kicks / Bans)</h3>
+        <div id="rbx-strafen-list"></div>
+
+        <div class="admin-form" id="rbx-strafe-form" style="display:none;">
+          <h3>Neue Strafe eintragen</h3>
+          <div class="field-row">
+            <div class="field"><label>Typ</label>
+              <select id="strafe-typ">
+                <option value="warn">Verwarnung</option>
+                <option value="kick">Kick</option>
+                <option value="ban">Bann</option>
+              </select>
+            </div>
+            <div class="field"><label>Grund</label><input type="text" id="strafe-grund" placeholder="Was ist passiert?"></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" id="strafe-save" type="button">Eintragen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCOUNTS TAB -->
+    <div class="tab-pane" id="tab-accounts">
+      <div class="admin-form">
+        <h3 id="acc-form-title">Neuer Admin-Account</h3>
+        <input type="hidden" id="acc-edit-id">
+        <div class="field-row">
+          <div class="field"><label>Nutzername</label><input type="text" id="acc-username"></div>
+          <div class="field"><label>Passwort <span style="font-weight:400; color:var(--ink-dim);">(beim Bearbeiten leer lassen = unverändert)</span></label><input type="password" id="acc-password"></div>
+        </div>
+        <label style="display:block; font-family:'IBM Plex Mono'; font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:6px;">Berechtigungen</label>
+        <div class="perm-grid">
+          <label class="perm-check"><input type="checkbox" id="perm-team"> Team</label>
+          <label class="perm-check"><input type="checkbox" id="perm-immobilien"> Immobilien</label>
+          <label class="perm-check"><input type="checkbox" id="perm-regelwerk"> Regelwerk</label>
+          <label class="perm-check"><input type="checkbox" id="perm-fraktionen"> Fraktionen</label>
+          <label class="perm-check"><input type="checkbox" id="perm-roblox"> Roblox-Lookup</label>
+          <label class="perm-check"><input type="checkbox" id="perm-strafen"> Strafen eintragen</label>
+          <label class="perm-check"><input type="checkbox" id="perm-manageAdmins"> Admins verwalten</label>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="acc-save" type="button">Speichern</button>
+          <button class="btn btn-ghost" id="acc-cancel" type="button" style="display:none;">Abbrechen</button>
+        </div>
+      </div>
+      <table class="admin-table">
+        <thead><tr><th>Nutzername</th><th>Berechtigungen</th><th></th></tr></thead>
+        <tbody id="acc-rows"></tbody>
+      </table>
+    </div>
   </div>
 </main>
 
@@ -247,48 +343,70 @@
 <script>
   const gate = document.getElementById('gate');
   const panel = document.getElementById('panel');
+  let currentSession = null;
 
-  async function unlock(key){
-    sessionStorage.setItem('hessenrp_admin_key', key);
+  function applyPermissionVisibility(){
+    const tabs = document.querySelectorAll('.admin-tab');
+    let firstVisible = null;
+    tabs.forEach(tab => {
+      const perm = tab.dataset.perm;
+      const visible = currentSession.isSuperAdmin || (currentSession.permissions && currentSession.permissions[perm]);
+      tab.style.display = visible ? '' : 'none';
+      if(visible && !firstVisible) firstVisible = tab;
+    });
+    if(firstVisible){
+      tabs.forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      firstVisible.classList.add('active');
+      document.getElementById('tab-' + firstVisible.dataset.tab).classList.add('active');
+    }
+  }
+
+  function unlockUI(){
     gate.style.display = 'none';
     panel.style.display = 'block';
+    document.getElementById('who-am-i').textContent =
+      `Angemeldet als ${currentSession.username}${currentSession.isSuperAdmin ? ' (Serverleitung — voller Zugriff)' : ''}`;
+    applyPermissionVisibility();
     renderTeamTable();
     renderImmoTable();
     renderRegTable();
     renderFrakTable();
+    if(currentSession.isSuperAdmin || (currentSession.permissions && currentSession.permissions.manageAdmins)) renderAccounts();
   }
 
   document.getElementById('btn-unlock').addEventListener('click', async () => {
     const btn = document.getElementById('btn-unlock');
     const err = document.getElementById('gate-error');
-    const key = document.getElementById('passphrase').value;
-    if(!key){ return; }
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    if(!password){ return; }
     btn.disabled = true;
     err.style.display = 'none';
-    const ok = await hessenrpVerifyAdminKey(key);
+    const result = await hessenrpLogin(username, password);
     btn.disabled = false;
-    if(ok){
-      unlock(key);
+    if(result.ok){
+      currentSession = { username: result.username, isSuperAdmin: result.isSuperAdmin, permissions: result.permissions || {} };
+      unlockUI();
     } else {
-      err.textContent = 'Falsche Zugangsphrase (oder ADMIN_KEY ist auf dem Server noch nicht gesetzt).';
+      err.textContent = result.error;
       err.style.display = 'block';
     }
   });
-  document.getElementById('passphrase').addEventListener('keydown', (e) => {
+  document.getElementById('login-password').addEventListener('keydown', (e) => {
     if(e.key === 'Enter') document.getElementById('btn-unlock').click();
   });
   document.getElementById('btn-lock').addEventListener('click', () => {
-    sessionStorage.removeItem('hessenrp_admin_key');
+    hessenrpClearSession();
     location.reload();
   });
 
-  // auto-unlock if we already have a verified key from this session
-  (async function tryAutoUnlock(){
-    const stored = sessionStorage.getItem('hessenrp_admin_key');
-    if(stored){
-      const ok = await hessenrpVerifyAdminKey(stored);
-      if(ok) unlock(stored);
-      else sessionStorage.removeItem('hessenrp_admin_key');
+  // auto-resume session from this browser tab, if we still have one
+  (function tryResume(){
+    const info = hessenrpSessionInfo();
+    if(info && hessenrpToken()){
+      currentSession = info;
+      unlockUI();
     }
   })();
 
@@ -320,10 +438,10 @@
             <button class="btn btn-ghost btn-sm" onclick="moveTeamMember(${i}, 1)" type="button" ${i === team.length - 1 ? 'disabled' : ''} title="Nach unten">↓</button>
           </div>
         </td>
-        <td><div class="row-name">${m.name}</div><div class="row-sub">${m.bio || ''}</div></td>
-        <td>${m.rolle}</td>
-        <td>${m.rang}</td>
-        <td>${m.seit}</td>
+        <td><div class="row-name">${escapeHtml(m.name)}</div><div class="row-sub">${escapeHtml(m.bio || '')}</div></td>
+        <td>${escapeHtml(m.rolle)}</td>
+        <td>${escapeHtml(m.rang)}</td>
+        <td>${escapeHtml(m.seit)}</td>
         <td class="col-actions">
           <button class="btn btn-ghost btn-sm" onclick="editTeamMember('${m.id}')" type="button">Bearbeiten</button>
           <button class="btn btn-danger btn-sm" onclick="deleteTeamMember('${m.id}')" type="button">Löschen</button>
@@ -336,7 +454,7 @@
     const target = index + dir;
     if(target < 0 || target >= list.length) return;
     [list[index], list[target]] = [list[target], list[index]];
-    const result = await saveTeamData(list);
+    const result = await saveTeamData(list, `Team-Reihenfolge geändert`);
     if(showSaveError(result, 'Sortieren fehlgeschlagen.')) renderTeamTable();
   }
   function clearTeamForm(){
@@ -346,6 +464,11 @@
     document.getElementById('team-rang').value = '';
     document.getElementById('team-seit').value = '';
     document.getElementById('team-bio').value = '';
+    document.getElementById('team-roblox-username').value = '';
+    document.getElementById('team-roblox-id').value = '';
+    document.getElementById('team-avatar-url').value = '';
+    document.getElementById('team-roblox-status').textContent = '';
+    document.getElementById('team-avatar-preview').style.display = 'none';
     document.getElementById('team-form-title').textContent = 'Neues Teammitglied';
     document.getElementById('team-cancel').style.display = 'none';
   }
@@ -358,16 +481,40 @@
     document.getElementById('team-rang').value = m.rang;
     document.getElementById('team-seit').value = m.seit;
     document.getElementById('team-bio').value = m.bio || '';
+    document.getElementById('team-roblox-username').value = m.robloxUsername || '';
+    document.getElementById('team-roblox-id').value = m.robloxId || '';
+    document.getElementById('team-avatar-url').value = m.avatarUrl || '';
+    const preview = document.getElementById('team-avatar-preview');
+    if(m.avatarUrl){ preview.src = m.avatarUrl; preview.style.display = 'block'; } else { preview.style.display = 'none'; }
     document.getElementById('team-form-title').textContent = 'Teammitglied bearbeiten';
     document.getElementById('team-cancel').style.display = 'inline-flex';
     window.scrollTo({ top: document.getElementById('tab-team').offsetTop - 100, behavior:'smooth' });
   }
   async function deleteTeamMember(id){
     if(!confirm('Dieses Teammitglied wirklich löschen?')) return;
-    const list = (await getTeamData()).filter(x => x.id !== id);
-    const result = await saveTeamData(list);
+    const all = await getTeamData();
+    const target = all.find(x => x.id === id);
+    const list = all.filter(x => x.id !== id);
+    const result = await saveTeamData(list, `Team-Mitglied gelöscht: ${target ? target.name : id}`);
     if(showSaveError(result, 'Löschen fehlgeschlagen.')) renderTeamTable();
   }
+  document.getElementById('team-roblox-fetch').addEventListener('click', async () => {
+    const username = document.getElementById('team-roblox-username').value.trim();
+    const status = document.getElementById('team-roblox-status');
+    if(!username){ status.textContent = 'Bitte zuerst einen Username eintragen.'; return; }
+    status.textContent = 'Wird gesucht …';
+    const result = await hessenrpRobloxLookup(username);
+    if(result.ok){
+      document.getElementById('team-roblox-username').value = result.username;
+      document.getElementById('team-roblox-id').value = result.id;
+      document.getElementById('team-avatar-url').value = result.avatarUrl || '';
+      const preview = document.getElementById('team-avatar-preview');
+      if(result.avatarUrl){ preview.src = result.avatarUrl; preview.style.display = 'block'; }
+      status.textContent = `✅ Gefunden: ${result.displayName} (ID ${result.id})`;
+    } else {
+      status.textContent = '❌ ' + result.error;
+    }
+  });
   document.getElementById('team-save').addEventListener('click', async () => {
     const name = document.getElementById('team-name').value.trim();
     if(!name){ alert('Bitte einen Namen eintragen.'); return; }
@@ -380,10 +527,14 @@
       rang: document.getElementById('team-rang').value.trim(),
       seit: document.getElementById('team-seit').value.trim(),
       bio: document.getElementById('team-bio').value.trim(),
+      robloxUsername: document.getElementById('team-roblox-username').value.trim(),
+      robloxId: document.getElementById('team-roblox-id').value.trim(),
+      avatarUrl: document.getElementById('team-avatar-url').value.trim(),
     };
     const idx = list.findIndex(x => x.id === editId);
+    const label = (idx > -1 ? 'Team-Mitglied bearbeitet: ' : 'Team-Mitglied hinzugefügt: ') + name;
     if(idx > -1) list[idx] = entry; else list.push(entry);
-    const result = await saveTeamData(list);
+    const result = await saveTeamData(list, label);
     if(showSaveError(result, 'Speichern fehlgeschlagen.')){ clearTeamForm(); renderTeamTable(); }
   });
   document.getElementById('team-cancel').addEventListener('click', clearTeamForm);
@@ -400,10 +551,10 @@
     if(!list.length){ rows.innerHTML = '<tr><td colspan="5"><div class="admin-empty">Keine Einträge.</div></td></tr>'; return; }
     rows.innerHTML = list.map(p => `
       <tr>
-        <td><div class="row-name">${p.titel}</div><div class="row-sub">${p.zimmer} Zi. · ${p.flaeche} m²</div></td>
-        <td>${p.stadt}</td>
+        <td><div class="row-name">${escapeHtml(p.titel)}</div><div class="row-sub">${escapeHtml(p.zimmer)} Zi. · ${escapeHtml(p.flaeche)} m²</div></td>
+        <td>${escapeHtml(p.stadt)}</td>
         <td>${Number(p.preis).toLocaleString('de-DE')} €</td>
-        <td>${p.status}</td>
+        <td>${escapeHtml(p.status)}</td>
         <td class="col-actions">
           <button class="btn btn-ghost btn-sm" onclick="editImmo('${p.id}')" type="button">Bearbeiten</button>
           <button class="btn btn-danger btn-sm" onclick="deleteImmo('${p.id}')" type="button">Löschen</button>
@@ -447,8 +598,10 @@
   }
   async function deleteImmo(id){
     if(!confirm('Diese Immobilie wirklich löschen?')) return;
-    const list = (await getImmobilienData()).filter(x => x.id !== id);
-    const result = await saveImmobilienData(list);
+    const all = await getImmobilienData();
+    const target = all.find(x => x.id === id);
+    const list = all.filter(x => x.id !== id);
+    const result = await saveImmobilienData(list, `Immobilie gelöscht: ${target ? target.titel : id}`);
     if(showSaveError(result, 'Löschen fehlgeschlagen.')) renderImmoTable();
   }
   document.getElementById('immo-bild-upload').addEventListener('click', async () => {
@@ -456,14 +609,16 @@
     const status = document.getElementById('immo-bild-status');
     const file = fileInput.files[0];
     if(!file){ status.textContent = 'Bitte zuerst eine Datei auswählen.'; return; }
+
+    const preview = document.getElementById('immo-bild-preview');
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+
     status.textContent = 'Wird hochgeladen …';
     const result = await hessenrpUploadImage(file);
     if(result.ok){
       document.getElementById('immo-bild').value = result.url;
-      const preview = document.getElementById('immo-bild-preview');
-      preview.src = result.url;
-      preview.style.display = 'block';
-      status.textContent = '✅ Hochgeladen.';
+      status.textContent = '✅ Hochgeladen — jetzt unten auf "Speichern" klicken, damit es an der Immobilie hängen bleibt.';
     } else {
       status.textContent = '❌ ' + result.error;
     }
@@ -485,8 +640,9 @@
       bild: document.getElementById('immo-bild').value.trim(),
     };
     const idx = list.findIndex(x => x.id === editId);
+    const label = (idx > -1 ? 'Immobilie bearbeitet: ' : 'Immobilie hinzugefügt: ') + titel;
     if(idx > -1) list[idx] = entry; else list.push(entry);
-    const result = await saveImmobilienData(list);
+    const result = await saveImmobilienData(list, label);
     if(showSaveError(result, 'Speichern fehlgeschlagen.')){ clearImmoForm(); renderImmoTable(); }
   });
   document.getElementById('immo-cancel').addEventListener('click', clearImmoForm);
@@ -509,9 +665,9 @@
             <button class="btn btn-ghost btn-sm" onclick="moveRegClause(${i}, 1)" type="button" ${i === list.length - 1 ? 'disabled' : ''} title="Nach unten">↓</button>
           </div>
         </td>
-        <td><div class="row-name">${c.section}</div><div class="row-sub">${c.sectionTitle}</div></td>
-        <td><div class="row-name">${c.num} ${c.title}</div></td>
-        <td><div class="row-sub">${(c.text || '').slice(0,80)}${(c.text||'').length > 80 ? '…' : ''}</div></td>
+        <td><div class="row-name">${escapeHtml(c.section)}</div><div class="row-sub">${escapeHtml(c.sectionTitle)}</div></td>
+        <td><div class="row-name">${escapeHtml(c.num)} ${escapeHtml(c.title)}</div></td>
+        <td><div class="row-sub">${escapeHtml((c.text || '').slice(0,80))}${(c.text||'').length > 80 ? '…' : ''}</div></td>
         <td class="col-actions">
           <button class="btn btn-ghost btn-sm" onclick="editRegClause('${c.id}')" type="button">Bearbeiten</button>
           <button class="btn btn-danger btn-sm" onclick="deleteRegClause('${c.id}')" type="button">Löschen</button>
@@ -524,7 +680,7 @@
     const target = index + dir;
     if(target < 0 || target >= list.length) return;
     [list[index], list[target]] = [list[target], list[index]];
-    const result = await saveRegelwerkData(list);
+    const result = await saveRegelwerkData(list, 'Regelwerk-Reihenfolge geändert');
     if(showSaveError(result, 'Sortieren fehlgeschlagen.')) renderRegTable();
   }
   function clearRegForm(){
@@ -552,8 +708,10 @@
   }
   async function deleteRegClause(id){
     if(!confirm('Diesen Paragraf wirklich löschen?')) return;
-    const list = (await getRegelwerkData()).filter(x => x.id !== id);
-    const result = await saveRegelwerkData(list);
+    const all = await getRegelwerkData();
+    const target = all.find(x => x.id === id);
+    const list = all.filter(x => x.id !== id);
+    const result = await saveRegelwerkData(list, `Regelwerk-Paragraf gelöscht: ${target ? target.num : id}`);
     if(showSaveError(result, 'Löschen fehlgeschlagen.')) renderRegTable();
   }
   document.getElementById('reg-save').addEventListener('click', async () => {
@@ -572,8 +730,9 @@
       text: document.getElementById('reg-text').value.trim(),
     };
     const idx = list.findIndex(x => x.id === editId);
+    const label = (idx > -1 ? 'Regelwerk bearbeitet: ' : 'Regelwerk-Paragraf hinzugefügt: ') + num + ' ' + title;
     if(idx > -1) list[idx] = entry; else list.push(entry);
-    const result = await saveRegelwerkData(list);
+    const result = await saveRegelwerkData(list, label);
     if(showSaveError(result, 'Speichern fehlgeschlagen.')){ clearRegForm(); renderRegTable(); }
   });
   document.getElementById('reg-cancel').addEventListener('click', clearRegForm);
@@ -590,10 +749,10 @@
     if(!list.length){ rows.innerHTML = '<tr><td colspan="5"><div class="admin-empty">Keine Einträge.</div></td></tr>'; return; }
     rows.innerHTML = list.map(f => `
       <tr>
-        <td><div class="row-name">${f.name}</div><div class="row-sub">${f.kuerzel}</div></td>
-        <td>${f.typ}</td>
-        <td>${f.leitung || '—'}</td>
-        <td>${f.status}</td>
+        <td><div class="row-name">${escapeHtml(f.name)}</div><div class="row-sub">${escapeHtml(f.kuerzel)}</div></td>
+        <td>${escapeHtml(f.typ)}</td>
+        <td>${escapeHtml(f.leitung || '—')}</td>
+        <td>${escapeHtml(f.status)}</td>
         <td class="col-actions">
           <button class="btn btn-ghost btn-sm" onclick="editFrak('${f.id}')" type="button">Bearbeiten</button>
           <button class="btn btn-danger btn-sm" onclick="deleteFrak('${f.id}')" type="button">Löschen</button>
@@ -632,8 +791,10 @@
   }
   async function deleteFrak(id){
     if(!confirm('Diese Fraktion wirklich löschen?')) return;
-    const list = (await getFraktionenData()).filter(x => x.id !== id);
-    const result = await saveFraktionenData(list);
+    const all = await getFraktionenData();
+    const target = all.find(x => x.id === id);
+    const list = all.filter(x => x.id !== id);
+    const result = await saveFraktionenData(list, `Fraktion gelöscht: ${target ? target.name : id}`);
     if(showSaveError(result, 'Löschen fehlgeschlagen.')) renderFrakTable();
   }
   document.getElementById('frak-save').addEventListener('click', async () => {
@@ -653,8 +814,9 @@
       raenge: document.getElementById('frak-raenge').value.trim(),
     };
     const idx = list.findIndex(x => x.id === editId);
+    const label = (idx > -1 ? 'Fraktion bearbeitet: ' : 'Fraktion hinzugefügt: ') + name;
     if(idx > -1) list[idx] = entry; else list.push(entry);
-    const result = await saveFraktionenData(list);
+    const result = await saveFraktionenData(list, label);
     if(showSaveError(result, 'Speichern fehlgeschlagen.')){ clearFrakForm(); renderFrakTable(); }
   });
   document.getElementById('frak-cancel').addEventListener('click', clearFrakForm);
@@ -663,6 +825,130 @@
     const result = await resetFraktionenData();
     if(showSaveError(result, 'Zurücksetzen fehlgeschlagen.')) renderFrakTable();
   });
+
+  // ---------- ROBLOX LOOKUP + STRAFEN ----------
+  let currentRbxId = null;
+  let currentRbxUsername = null;
+
+  async function runRobloxLookup(){
+    const username = document.getElementById('rbx-username').value.trim();
+    const resultBox = document.getElementById('rbx-result');
+    const strafenSection = document.getElementById('rbx-strafen-section');
+    strafenSection.style.display = 'none';
+    if(!username){ resultBox.innerHTML = '<p class="row-sub">Bitte einen Username eingeben.</p>'; return; }
+    resultBox.innerHTML = '<p class="row-sub">Wird gesucht …</p>';
+    const result = await hessenrpRobloxLookup(username);
+    if(!result.ok){
+      resultBox.innerHTML = `<p class="row-sub" style="color:var(--red-2);">❌ ${escapeHtml(result.error)}</p>`;
+      return;
+    }
+    currentRbxId = result.id;
+    currentRbxUsername = result.username;
+    resultBox.innerHTML = `
+      <div class="notruf-panel" style="display:flex; gap:24px; align-items:center; max-width:520px;">
+        ${result.avatarUrl ? `<img src="${escapeHtml(result.avatarUrl)}" alt="${escapeHtml(result.username)}" style="width:80px; height:80px; border:1px solid var(--line-red); flex-shrink:0;">` : ''}
+        <div>
+          <div class="row-name" style="font-size:18px;">${escapeHtml(result.displayName)}</div>
+          <div class="row-sub">@${escapeHtml(result.username)}</div>
+          <div class="row-sub mono" style="margin-top:8px;">User-ID: <b style="color:#fff;">${escapeHtml(String(result.id))}</b></div>
+          <a href="${escapeHtml(result.profileUrl)}" target="_blank" rel="noopener" style="font-family:'IBM Plex Mono'; font-size:12.5px; color:var(--red-2);">Profil auf Roblox ansehen ↗</a>
+        </div>
+      </div>
+    `;
+    strafenSection.style.display = 'block';
+    if(currentSession.isSuperAdmin || (currentSession.permissions && currentSession.permissions.strafen)){
+      document.getElementById('rbx-strafe-form').style.display = 'block';
+    }
+    await renderStrafen();
+  }
+  async function renderStrafen(){
+    const list = await hessenrpGetStrafen(currentRbxId);
+    const box = document.getElementById('rbx-strafen-list');
+    if(!list.length){ box.innerHTML = '<p class="row-sub">Noch keine Einträge für diesen Nutzer.</p>'; return; }
+    const typLabel = { warn: 'Verwarnung', kick: 'Kick', ban: 'Bann' };
+    box.innerHTML = list.map(s => `
+      <div class="strafe-row">
+        <span class="strafe-badge ${escapeHtml(s.typ)}">${escapeHtml(typLabel[s.typ] || s.typ)}</span>
+        <div style="margin-top:8px;">${escapeHtml(s.grund || 'Kein Grund angegeben')}</div>
+        <div class="meta">von ${escapeHtml(s.von)} · ${new Date(s.datum).toLocaleString('de-DE')}</div>
+      </div>
+    `).join('');
+  }
+  document.getElementById('rbx-search').addEventListener('click', runRobloxLookup);
+  document.getElementById('rbx-username').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') runRobloxLookup();
+  });
+  document.getElementById('strafe-save').addEventListener('click', async () => {
+    const typ = document.getElementById('strafe-typ').value;
+    const grund = document.getElementById('strafe-grund').value.trim();
+    if(!currentRbxId){ return; }
+    const result = await hessenrpAddStrafe(currentRbxId, typ, grund, currentRbxUsername);
+    if(result.ok){
+      document.getElementById('strafe-grund').value = '';
+      await renderStrafen();
+    } else {
+      alert(result.error);
+    }
+  });
+
+  // ---------- ACCOUNTS ----------
+  const PERM_KEYS = ['team','immobilien','regelwerk','fraktionen','roblox','strafen','manageAdmins'];
+  const PERM_LABELS = { team:'Team', immobilien:'Immobilien', regelwerk:'Regelwerk', fraktionen:'Fraktionen', roblox:'Roblox-Lookup', strafen:'Strafen', manageAdmins:'Admins verwalten' };
+
+  async function renderAccounts(){
+    const rows = document.getElementById('acc-rows');
+    const list = await hessenrpGetAdmins();
+    if(!list.length){ rows.innerHTML = '<tr><td colspan="3"><div class="admin-empty">Noch keine eigenen Accounts — bisher nur die Serverleitungs-Anmeldung.</div></td></tr>'; return; }
+    rows.innerHTML = list.map(a => `
+      <tr>
+        <td class="row-name">${escapeHtml(a.username)}</td>
+        <td><div class="perm-badges">${PERM_KEYS.filter(k => a.permissions && a.permissions[k]).map(k => `<span class="perm-badge">${PERM_LABELS[k]}</span>`).join('') || '<span class="row-sub">Keine</span>'}</div></td>
+        <td class="col-actions">
+          <button class="btn btn-ghost btn-sm" onclick="editAccount('${a.id}')" type="button">Bearbeiten</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAccount('${a.id}','${escapeHtml(a.username)}')" type="button">Löschen</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+  function clearAccountForm(){
+    document.getElementById('acc-edit-id').value = '';
+    document.getElementById('acc-username').value = '';
+    document.getElementById('acc-password').value = '';
+    PERM_KEYS.forEach(k => { document.getElementById('perm-' + k).checked = false; });
+    document.getElementById('acc-form-title').textContent = 'Neuer Admin-Account';
+    document.getElementById('acc-cancel').style.display = 'none';
+  }
+  async function editAccount(id){
+    const list = await hessenrpGetAdmins();
+    const a = list.find(x => x.id === id);
+    if(!a) return;
+    document.getElementById('acc-edit-id').value = a.id;
+    document.getElementById('acc-username').value = a.username;
+    document.getElementById('acc-password').value = '';
+    PERM_KEYS.forEach(k => { document.getElementById('perm-' + k).checked = !!(a.permissions && a.permissions[k]); });
+    document.getElementById('acc-form-title').textContent = 'Account bearbeiten';
+    document.getElementById('acc-cancel').style.display = 'inline-flex';
+    window.scrollTo({ top: document.getElementById('tab-accounts').offsetTop - 100, behavior:'smooth' });
+  }
+  async function deleteAccount(id, username){
+    if(!confirm(`Account "${username}" wirklich löschen?`)) return;
+    const result = await hessenrpDeleteAdmin(id);
+    if(showSaveError(result, 'Löschen fehlgeschlagen.')) renderAccounts();
+  }
+  document.getElementById('acc-save').addEventListener('click', async () => {
+    const username = document.getElementById('acc-username').value.trim();
+    if(!username){ alert('Bitte einen Nutzernamen eintragen.'); return; }
+    const editId = document.getElementById('acc-edit-id').value;
+    const password = document.getElementById('acc-password').value;
+    if(!editId && !password){ alert('Bitte ein Passwort vergeben.'); return; }
+    const permissions = {};
+    PERM_KEYS.forEach(k => { permissions[k] = document.getElementById('perm-' + k).checked; });
+    const payload = { id: editId || undefined, username, permissions };
+    if(password) payload.password = password;
+    const result = await hessenrpSaveAdmin(payload);
+    if(showSaveError(result, 'Speichern fehlgeschlagen.')){ clearAccountForm(); renderAccounts(); }
+  });
+  document.getElementById('acc-cancel').addEventListener('click', clearAccountForm);
 </script>
 </body>
 </html>

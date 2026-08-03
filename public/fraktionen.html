@@ -132,18 +132,18 @@
     const statusLabel = { offen:'Offen', bewerbung:'Bewerbung offen', geschlossen:'Geschlossen' };
     grid.innerHTML = list.map(f => `
       <div class="frak-card">
-        <div class="faction-type">${f.typ}</div>
+        <div class="faction-type">${escapeHtml(f.typ)}</div>
         <div class="frak-head">
           <div>
-            <h3>${f.name}</h3>
-            <div class="frak-tag">${f.kuerzel}</div>
+            <h3>${escapeHtml(f.name)}</h3>
+            <div class="frak-tag">${escapeHtml(f.kuerzel)}</div>
           </div>
         </div>
-        <p>${f.beschreibung || ''}</p>
-        ${f.raenge ? `<div class="faction-ranks"><b>Ränge</b>${f.raenge}</div>` : ''}
+        <p>${escapeHtml(f.beschreibung || '')}</p>
+        ${f.raenge ? `<div class="faction-ranks"><b>Ränge</b>${escapeHtml(f.raenge)}</div>` : ''}
         <div class="frak-meta">
-          <span>Leitung: ${f.leitung || '—'}</span>
-          <span class="faction-status ${f.status}">${statusLabel[f.status] || f.status}</span>
+          <span>Leitung: ${escapeHtml(f.leitung || '—')}</span>
+          <span class="faction-status ${escapeHtml(f.status)}">${escapeHtml(statusLabel[f.status] || f.status)}</span>
         </div>
       </div>
     `).join('');

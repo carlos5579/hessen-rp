@@ -1,3 +1,20 @@
+// HTML-escaping for anything rendered via innerHTML that came from stored
+// data (team bios, listing descriptions, etc.) — prevents stored XSS if a
+// malicious or accidentally-broken string (e.g. containing "<") ends up in
+// KV. sanitizeRichText additionally allows literal <br> for the Regelwerk
+// text field, which intentionally uses it for line breaks.
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function sanitizeRichText(str) {
+  return escapeHtml(str).replace(/&lt;br&gt;/gi, '<br>');
+}
+
 // nav dropdown ("Verwaltung" menu)
 document.querySelectorAll('.nav-dropdown-trigger').forEach(trigger => {
   trigger.addEventListener('click', (e) => {

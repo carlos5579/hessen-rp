@@ -58,13 +58,16 @@ and Secrets** → **Add** → jeweils Typ **Secret**:
 
 | Name                      | Wert                                  |
 |----------------------------|----------------------------------------|
-| `ADMIN_KEY`                | Eure eigene Admin-Zugangsphrase (frei wählbar) |
+| `ADMIN_KEY`                | Eure Serverleitungs-Zugangsphrase (frei wählbar) |
 | `DISCORD_WEBHOOK_NOTRUF`   | Eure Notruf-Webhook-URL               |
 | `DISCORD_WEBHOOK_AUSWEISE` | Eure Ausweis-Webhook-URL              |
+| `DISCORD_WEBHOOK_ADMINLOG` | (optional) privater Kanal für Admin-Änderungen — siehe unten |
 
-`ADMIN_KEY` ersetzt die alte, fest im Code stehende Passphrase — die Eingabe
-im Admin-Bereich wird jetzt direkt gegen dieses Secret geprüft. Diese
-Zugangsphrase ist also gleichzeitig euer neues Admin-Passwort.
+`ADMIN_KEY` ist jetzt die Zugangsphrase für den **Serverleitungs-Login**
+(Nutzername leer lassen, nur diese Phrase eingeben) — damit könnt ihr euch
+immer einloggen, auch bevor ihr einzelne Admin-Accounts angelegt habt, und
+dieser Login hat automatisch Vollzugriff auf alles inklusive
+Account-Verwaltung.
 
 **Optional:** `NOTRUF_PING_ROLE_ID` — pingt bei einem Notruf eine bestimmte
 Discord-Rolle (z. B. `@Admin`) statt `@here`. Kann als normale **Variable**
@@ -114,21 +117,83 @@ noch nie erfolgreich Worker-Code deployt wurde.
 Der alte "Als Code exportieren"-Workflow ist komplett entfallen — Änderungen
 im Adminbereich sind sofort live.
 
-## Admin-Zugang
+## Admin-Zugang & Berechtigungen
 
-Zugangsphrase = der Wert des `ADMIN_KEY`-Secrets. Das ist jetzt eine echte
-serverseitige Prüfung, keine reine Clientseiten-Sperre mehr wie vorher.
+Es gibt jetzt zwei Arten, sich im Adminbereich (`/admin.html`) anzumelden:
 
-## Discord-Webhooks
+- **Serverleitung**: Nutzername leer lassen, nur die `ADMIN_KEY`-Zugangsphrase
+  eingeben → voller Zugriff auf alles, inklusive Account-Verwaltung.
+- **Einzelne Admin-Accounts**: Nutzername + eigenes Passwort, mit genau den
+  Berechtigungen, die ihr diesem Account gegeben habt (Team, Immobilien,
+  Regelwerk, Fraktionen, Roblox-Lookup, Strafen eintragen, Admins verwalten).
 
-Unverändert: Die Webhook-URLs stehen in keiner Datei im Repo, sondern nur als
-Secrets in Cloudflare (`DISCORD_WEBHOOK_NOTRUF`, `DISCORD_WEBHOOK_AUSWEISE`).
-Der Notruf-Button sitzt auf der **öffentlichen Startseite** (`index.html`,
-Abschnitt "Notruf an das Team") — er ist für Bürger/Spieler gedacht, die
-einen Admin brauchen, deshalb bewusst ohne Login. Es gibt einen einfachen
-30-Sekunden-Cooldown im Frontend gegen versehentliches Mehrfach-Senden, aber
-keinen echten Spam-Schutz (siehe "Bekannte Grenzen" unten). Der
-Ausweis-Versand bleibt ebenfalls öffentlich, da normale Spieler ihn nutzen.
+Accounts werden im Tab **"Accounts"** angelegt (nur sichtbar für Serverleitung
+oder Accounts mit der Berechtigung "Admins verwalten"). Passwörter werden
+gesalzen gehasht in KV gespeichert (nie im Klartext). Logins sind auf 8
+Versuche pro 15 Minuten und IP begrenzt.
+
+Ein Account sieht im Adminbereich nur die Tabs, für die er eine Berechtigung
+hat — z. B. kann ein Account mit nur "Immobilien" gar nicht ans Regelwerk ran.
+
+## Strafen-System (Roblox-Lookup)
+
+Im Tab "Roblox-Lookup" könnt ihr nach einem Roblox-Nutzer suchen und direkt
+darunter dessen Verlauf sehen: Verwarnungen, Kicks, Bans — mit Grund, wer es
+eingetragen hat und wann. Neue Einträge über das Formular darunter (braucht
+die Berechtigung "Strafen eintragen"). Gespeichert unter dem Schlüssel
+`strafen:<roblox-id>` in KV, dauerhaft.
+
+## Admin-Änderungslog (privat, nur für euer Team)
+
+Mit `DISCORD_WEBHOOK_ADMINLOG` gesetzt, postet der Worker bei **jeder**
+Admin-Änderung (Team/Immobilien/Regelwerk/Fraktionen hinzugefügt, bearbeitet,
+gelöscht, sortiert, zurückgesetzt; Strafe eingetragen; Admin-Account
+angelegt/bearbeitet/gelöscht) eine kurze Zeile in diesen Kanal, mit dem
+Namen des Admins, der es gemacht hat. Kein Setup außer dem Secret nötig —
+ohne `DISCORD_WEBHOOK_ADMINLOG` läuft alles wie gewohnt, nur ohne
+Discord-Meldung.
+
+Legt dafür am besten einen **eigenen, nicht-öffentlichen** Discord-Kanal an,
+den nur euer Team sieht (z. B. `#admin-log`) — das ist bewusst getrennt vom
+Deploy-Log unten, damit normale Mitglieder nicht sehen, wer wann welche
+Immobilie bearbeitet hat.
+
+## Deploy-Benachrichtigung (öffentlich, für alle sichtbar)
+
+`.github/workflows/notify-deploy.yml` postet bei jedem Push auf `main` eine
+Nachricht mit Commit-Beschreibung und Autor nach Discord — das ist für einen
+**öffentlichen** Kanal gedacht (z. B. `#changelog`), damit die Community
+mitbekommt, wenn's Updates an der Website gibt.
+
+Das ist ein **komplett eigenes** Secret, **nicht** dasselbe wie der
+Admin-Log oben — technisch, weil GitHub Actions keinen Zugriff auf
+Cloudflares Secrets hat, aber auch bewusst so gewollt: unterschiedliche
+Kanäle, unterschiedliche Sichtbarkeit.
+
+1. GitHub Repo → **Settings → Secrets and variables → Actions → New repository secret**
+2. Name: `DISCORD_WEBHOOK_BUILDLOG`, Wert: die Webhook-URL **eures
+   öffentlichen Kanals** (nicht die vom Admin-Log!)
+
+Ohne dieses GitHub-Secret überspringt die Action die Benachrichtigung einfach
+(kein Fehler).
+
+## Discord-Webhooks — Übersicht
+
+| Secret                        | Wo gesetzt              | Kanal-Sichtbarkeit        | Inhalt |
+|--------------------------------|--------------------------|----------------------------|--------|
+| `DISCORD_WEBHOOK_NOTRUF`       | Cloudflare               | Team (z. B. `#notruf`)    | Notrufe von Spielern |
+| `DISCORD_WEBHOOK_AUSWEISE`     | Cloudflare               | Team (z. B. `#ausweise`)  | Neue Bürgerausweise |
+| `DISCORD_WEBHOOK_ADMINLOG`     | Cloudflare               | **Privat**, nur Team      | Admin-Änderungen (wer hat was gemacht) |
+| `DISCORD_WEBHOOK_BUILDLOG`     | GitHub Actions (!)       | **Öffentlich**, für alle  | Neue Deploys/Updates der Website |
+
+Keine dieser URLs steht in einer Datei im Repo — nur als Secrets an den
+jeweiligen Stellen. Der Notruf-Button sitzt auf der **öffentlichen
+Startseite** (`index.html`, Abschnitt "Notruf an das Team") — er ist für
+Bürger/Spieler gedacht, die einen Admin brauchen, deshalb bewusst ohne
+Login. Es gibt einen einfachen 30-Sekunden-Cooldown im Frontend gegen
+versehentliches Mehrfach-Senden, aber keinen echten Spam-Schutz (siehe
+"Bekannte Grenzen" unten). Der Ausweis-Versand bleibt ebenfalls öffentlich,
+da normale Spieler ihn nutzen.
 
 ## Lokale Entwicklung (optional)
 
@@ -149,6 +214,52 @@ Für KV/R2 lokal braucht Wrangler zusätzlich `--local`-kompatible Bindings,
 das ist optional und für den ersten Start nicht nötig — Testen direkt auf
 Cloudflare nach dem Deploy ist meist einfacher.
 
+## Roblox-Lookup
+
+`/api/roblox-lookup` (admin-only) nutzt Robloxs öffentliche APIs, um zu
+einem Username die User-ID, den Anzeigenamen und ein Avatar-Bild zu holen.
+Zwei Stellen im Admin-Bereich nutzen das:
+
+- **Team-Formular**: Roblox-Username eintragen → "Avatar laden" → Avatar
+  wird gespeichert und erscheint auf `/team.html`. Es wird nur die
+  Avatar-**URL** gespeichert (ein paar Bytes Text), nicht das Bild selbst —
+  das braucht keine zusätzliche KV-Namespace, der bestehende Speicher
+  reicht dafür locker.
+- **Eigenständiges "Roblox-Lookup"-Tab**: Username eingeben, direkt
+  Anzeigename/User-ID/Avatar/Profil-Link bekommen, unabhängig vom Team.
+
+Team-Reihenfolge (Hierarchie): Die ↑/↓-Pfeile in der Team-Tabelle im Admin
+steuern, in welcher Reihenfolge Mitglieder auf `/team.html` erscheinen —
+das ist schon die "von oben nach unten"-Hierarchie.
+
+## Sicherheit
+
+- **HTML-Escaping**: Alle aus KV geladenen Texte (Team-Bios, Immobilien-
+  Beschreibungen, Regelwerk, Fraktionen) werden vor der Anzeige escaped
+  (`escapeHtml()` in `script.js`), das verhindert gespeichertes XSS. Das
+  Regelwerk-Textfeld erlaubt zusätzlich `<br>` für Zeilenumbrüche, alles
+  andere wird auch dort neutralisiert.
+- **Admin-Login**: Passwörter werden gesalzen mit SHA-256 gehasht in KV
+  gespeichert (nie im Klartext), Vergleiche laufen timing-safe. Sessions
+  sind Zufalls-Tokens mit 12h-Gültigkeit, keine JWTs mit einsehbarem Inhalt.
+  Brute-Force-Schutz: max. 8 Login-Versuche pro 15 Minuten und IP, für
+  Serverleitungs- und Account-Login gemeinsam.
+- **Berechtigungen**: Jeder Endpunkt prüft serverseitig die passende
+  Berechtigung der Session (nicht nur, ob überhaupt eingeloggt) — ein
+  Immobilien-Account kann z. B. technisch nicht ans Regelwerk, auch nicht
+  über direkte API-Aufrufe.
+- **Schreibzugriffe** (`/api/data/*`, Bild-Upload) sind zusätzlich zur
+  Berechtigungsprüfung rate-limitiert, als Verteidigung falls eine Session
+  doch mal geleakt wird.
+- **Bild-Uploads**: nur PNG/JPEG/WEBP/GIF, max. 4 MB, Typ wird geprüft
+  (keine SVGs — die könnten eingebettetes JavaScript enthalten).
+
+Wichtigste verbleibende Empfehlung: Wählt einen **langen, zufälligen**
+`ADMIN_KEY` und ebenso starke Passwörter für einzelne Accounts — die Limits
+helfen, ersetzen aber kein starkes Passwort. Salted-SHA-256 ist solide für
+diesen Rahmen, aber kein bcrypt/Argon2 — für eine größere Community mit
+vielen Accounts wäre ein echter Auth-Provider langfristig die robustere Wahl.
+
 ## Bekannte Grenzen (bewusste Trade-offs)
 
 - **Einfaches IP-Rate-Limit** auf `/api/notruf` (3 pro 10 Min.) und
@@ -158,6 +269,20 @@ Cloudflare nach dem Deploy ist meist einfacher.
   keine harte Sicherheitsgarantie. Bei ernsthaftem Missbrauch (z. B. über
   viele verschiedene IPs) könnt ihr zusätzlich Cloudflare Turnstile oder das
   Rate-Limiting-Produkt im Dashboard (Security → WAF) davorschalten.
-- **Ein einziger Admin-Schlüssel** für alle Admins — kein individuelles
-  Login pro Person. Für mehr Kontrolle könnte man später Cloudflare Access
-  vor `/admin.html` schalten.
+- **Individuelle Admin-Accounts** sind jetzt möglich (Tab "Accounts"), aber
+  optional — ohne angelegte Accounts funktioniert weiterhin nur der
+  Serverleitungs-Login mit `ADMIN_KEY`.
+- **Roblox-Avatare** sind nur eine gespeicherte URL vom Roblox-CDN — falls
+  Roblox diese URLs irgendwann ändert/invalidiert, müsste der Avatar im
+  Admin neu geladen werden (kein automatisches Refresh).
+- **Immobilien-Bilder direkt nach dem Hochladen**: KV ist "eventually
+  consistent" — in seltenen Fällen kann ein gerade hochgeladenes Bild ein
+  paar Sekunden brauchen, bis es überall abrufbar ist. Die Admin-Vorschau
+  zeigt deshalb sofort die lokale Datei (unabhängig vom Server), und die
+  öffentliche Immobilien-Seite versucht ein fehlgeschlagenes Bild nach 2
+  Sekunden automatisch neu zu laden, bevor sie aufgibt.
+- **Wichtig nach diesem Update**: Der alte `/api/admin/verify`-Endpunkt
+  wurde durch `/api/admin/login` ersetzt. Falls irgendwo noch eine alte
+  Version von `admin.html` im Einsatz ist, muss sie durch die neue ersetzt
+  werden — alte gespeicherte Zugangsdaten im Browser werden automatisch
+  ungültig und verlangen einmalig ein neues Einloggen.

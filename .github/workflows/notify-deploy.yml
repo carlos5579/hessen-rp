@@ -1,0 +1,24 @@
+name: Discord Deploy-Benachrichtigung
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Commit-Infos sammeln und an Discord senden
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_BUILDLOG }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_BUILDLOG Secret nicht gesetzt — ueberspringe Benachrichtigung."
+            exit 0
+          fi
+          MESSAGE=$(git log -1 --pretty=format:'%s' | sed 's/"/\\"/g')
+          AUTHOR=$(git log -1 --pretty=format:'%an' | sed 's/"/\\"/g')
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          curl -sf -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"HESSEN RP · Deploy\",\"embeds\":[{\"title\":\"🚀 Neuer Deploy\",\"description\":\"**${MESSAGE}**\",\"color\":3910604,\"fields\":[{\"name\":\"Von\",\"value\":\"${AUTHOR}\",\"inline\":true},{\"name\":\"Commit\",\"value\":\"${SHA_SHORT}\",\"inline\":true}]}]}"

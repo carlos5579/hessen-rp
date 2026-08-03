@@ -153,17 +153,17 @@
     const groups = groupBySections(list);
 
     toc.innerHTML = '<div class="toc-title">Inhalt</div>' + groups.map(g =>
-      `<a href="#${slug(g.section)}">${g.section} ${g.sectionTitle}</a>`
+      `<a href="#${slug(g.section)}">${escapeHtml(g.section)} ${escapeHtml(g.sectionTitle)}</a>`
     ).join('');
 
     content.innerHTML = groups.map(g => `
       <section class="law-section" id="${slug(g.section)}">
-        <div class="law-head"><span class="tag">${g.section}</span><h2>${g.sectionTitle}</h2></div>
+        <div class="law-head"><span class="tag">${escapeHtml(g.section)}</span><h2>${escapeHtml(g.sectionTitle)}</h2></div>
         <div class="law-body">
           ${g.clauses.map(c => `
             <div class="clause">
-              <span class="num">${c.num}</span>
-              <div class="body"><h4>${c.title}</h4><p>${c.text}</p></div>
+              <span class="num">${escapeHtml(c.num)}</span>
+              <div class="body"><h4>${escapeHtml(c.title)}</h4><p>${sanitizeRichText(c.text)}</p></div>
             </div>
           `).join('')}
         </div>
