@@ -163,6 +163,21 @@ async function hessenrpAddStrafe(robloxId, typ, grund, username, dauer) {
   }
 }
 
+async function hessenrpPostChangelog(message) {
+  try {
+    const res = await fetch('/api/changelog', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, hessenrpAuthHeader()),
+      body: JSON.stringify({ message }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || 'Senden fehlgeschlagen.' };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: 'Server nicht erreichbar.' };
+  }
+}
+
 async function hessenrpGetAdmins() {
   try {
     const res = await fetch('/api/admin/accounts', { headers: hessenrpAuthHeader() });

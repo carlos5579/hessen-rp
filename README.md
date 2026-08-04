@@ -158,24 +158,41 @@ den nur euer Team sieht (z. B. `#admin-log`) — das ist bewusst getrennt vom
 Deploy-Log unten, damit normale Mitglieder nicht sehen, wer wann welche
 Immobilie bearbeitet hat.
 
-## Deploy-Benachrichtigung (öffentlich, für alle sichtbar)
+## Update-Ankündigungen (öffentlich, für alle sichtbar)
+
+Es gibt jetzt **zwei** Wege, öffentliche Update-Meldungen zu posten — beide
+landen im selben Kanal, sind aber unabhängig voneinander:
+
+### A) Manuell über den Admin-Bereich (empfohlen, immer verfügbar)
+
+Tab **"Update posten"** (Berechtigung: `changelog`): Text eintippen, Knopf
+drücken, geht sofort raus. Braucht nur ein **Cloudflare-Secret**:
+
+- Name: `DISCORD_WEBHOOK_BUILDLOG`
+- Typ: **Secret**
+- Wert: die Webhook-URL eures **öffentlichen** Kanals (z. B. `#updates`)
+
+Das ist der zuverlässigste Weg, weil er nicht von GitHub Actions abhängt —
+funktioniert sofort, sobald das Secret in Cloudflare gesetzt ist.
+
+### B) Automatisch bei jedem Push (optional, zusätzlich)
 
 `.github/workflows/notify-deploy.yml` postet bei jedem Push auf `main` eine
-Nachricht mit Commit-Beschreibung und Autor nach Discord — das ist für einen
-**öffentlichen** Kanal gedacht (z. B. `#changelog`), damit die Community
-mitbekommt, wenn's Updates an der Website gibt.
-
-Das ist ein **komplett eigenes** Secret, **nicht** dasselbe wie der
-Admin-Log oben — technisch, weil GitHub Actions keinen Zugriff auf
-Cloudflares Secrets hat, aber auch bewusst so gewollt: unterschiedliche
-Kanäle, unterschiedliche Sichtbarkeit.
+Nachricht mit Commit-Beschreibung und Autor. Braucht ein **eigenes Secret in
+GitHub** (nicht dasselbe wie oben, weil GitHub Actions keinen Zugriff auf
+Cloudflares Secrets hat):
 
 1. GitHub Repo → **Settings → Secrets and variables → Actions → New repository secret**
-2. Name: `DISCORD_WEBHOOK_BUILDLOG`, Wert: die Webhook-URL **eures
-   öffentlichen Kanals** (nicht die vom Admin-Log!)
+2. Name: `DISCORD_WEBHOOK_BUILDLOG`, Wert: dieselbe oder eine andere
+   öffentliche Kanal-URL
 
 Ohne dieses GitHub-Secret überspringt die Action die Benachrichtigung einfach
-(kein Fehler).
+(kein Fehler) — der manuelle Weg (A) funktioniert davon komplett unabhängig.
+
+> Falls Weg B bei euch partout nicht ankommt (GitHub Actions Debugging kann
+> mühsam sein — Root Directory, Secrets, Branch-Namen, alles kann
+> dazwischenfunken): einfach Weg A nutzen. Der braucht kein GitHub Actions
+> überhaupt und funktioniert unabhängig davon.
 
 ## Discord-Webhooks — Übersicht
 
@@ -184,7 +201,7 @@ Ohne dieses GitHub-Secret überspringt die Action die Benachrichtigung einfach
 | `DISCORD_WEBHOOK_NOTRUF`       | Cloudflare               | Team (z. B. `#notruf`)    | Notrufe von Spielern |
 | `DISCORD_WEBHOOK_AUSWEISE`     | Cloudflare               | Team (z. B. `#ausweise`)  | Neue Bürgerausweise |
 | `DISCORD_WEBHOOK_ADMINLOG`     | Cloudflare               | **Privat**, nur Team      | Admin-Änderungen (wer hat was gemacht) |
-| `DISCORD_WEBHOOK_BUILDLOG`     | GitHub Actions (!)       | **Öffentlich**, für alle  | Neue Deploys/Updates der Website |
+| `DISCORD_WEBHOOK_BUILDLOG`     | Cloudflare **und/oder** GitHub Actions | **Öffentlich**, für alle | Update-Ankündigungen (manuell aus dem Admin-Bereich und/oder automatisch bei Push) |
 
 Keine dieser URLs steht in einer Datei im Repo — nur als Secrets an den
 jeweiligen Stellen. Der Notruf-Button sitzt auf der **öffentlichen
@@ -213,6 +230,15 @@ DISCORD_WEBHOOK_AUSWEISE=https://discord.com/api/webhooks/...
 Für KV/R2 lokal braucht Wrangler zusätzlich `--local`-kompatible Bindings,
 das ist optional und für den ersten Start nicht nötig — Testen direkt auf
 Cloudflare nach dem Deploy ist meist einfacher.
+
+## Server-Links (In-Game-Server-Codes)
+
+Die Roblox-Server-Links stehen nicht mehr fest im Code, sondern im Admin-Tab
+"Server-Links" (Berechtigung: `serverlinks`). Der **erste** Eintrag
+(Reihenfolge per ↑/↓ steuerbar) wird automatisch der große "▶ Jetzt
+spielen"-Button auf der Startseite, alle weiteren erscheinen als kleine
+Zusatzlinks darunter ("Weitere Server: ..."). Ändert sich der Server-Code,
+einfach im Admin bearbeiten — kein Redeploy nötig.
 
 ## Roblox-Lookup
 

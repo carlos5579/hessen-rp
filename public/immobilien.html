@@ -128,11 +128,10 @@
     grid.innerHTML = list.map(p => `
       <div class="property-card">
         ${p.bild
-          ? `<div class="property-img"><img src="${escapeHtml(p.bild)}" alt="${escapeHtml(p.titel)}" loading="lazy" onerror="this.onerror=null; var s=this.src; setTimeout(()=>{this.src=s+(s.indexOf('?')>-1?'&':'?')+'retry='+Date.now();}, 2000);"></div>`
-          : `<div class="property-img no-img"><span>// KEIN BILD HINTERLEGT</span></div>`}
+          ? `<div class="property-img"><img src="${escapeHtml(p.bild)}" alt="${escapeHtml(p.titel)}" loading="lazy" onerror="this.onerror=null; var s=this.src; setTimeout(()=>{this.src=s+(s.indexOf('?')>-1?'&':'?')+'retry='+Date.now();}, 2000);"><span class="property-status">${escapeHtml(p.status)}</span></div>`
+          : `<div class="property-img no-img"><span>// KEIN BILD HINTERLEGT</span><span class="property-status">${escapeHtml(p.status)}</span></div>`}
         <div class="property-body">
-          <span class="property-status">${escapeHtml(p.status)}</span>
-          <h3 style="margin-top:14px;">${escapeHtml(p.titel)}</h3>
+          <h3>${escapeHtml(p.titel)}</h3>
           <div class="property-addr">${escapeHtml(p.stadt)}</div>
           <p>${escapeHtml(p.beschreibung || '')}</p>
           <div class="property-meta">

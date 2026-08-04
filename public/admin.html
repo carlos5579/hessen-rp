@@ -105,6 +105,7 @@
       <button class="admin-tab" data-tab="regelwerk" data-perm="regelwerk">Regelwerk</button>
       <button class="admin-tab" data-tab="fraktionen" data-perm="fraktionen">Fraktionen</button>
       <button class="admin-tab" data-tab="serverlinks" data-perm="serverlinks">Server-Links</button>
+      <button class="admin-tab" data-tab="changelog" data-perm="changelog">Update posten</button>
       <button class="admin-tab" data-tab="roblox" data-perm="roblox">Roblox-Lookup</button>
       <button class="admin-tab" data-tab="accounts" data-perm="manageAdmins">Accounts</button>
     </div>
@@ -296,6 +297,19 @@
       </div>
     </div>
 
+    <!-- CHANGELOG / UPDATE POSTEN TAB -->
+    <div class="tab-pane" id="tab-changelog">
+      <div class="admin-form">
+        <h3>Update-Ankündigung posten</h3>
+        <p class="row-sub" style="margin-bottom:14px;">Geht direkt und öffentlich in euren Update-Kanal auf Discord — für alle sichtbar, nicht nur fürs Team. Manuell statt automatisch, damit ihr selbst entscheidet, was gepostet wird.</p>
+        <div class="field"><label>Text</label><textarea id="cl-message" placeholder="z. B. Neues Feature: Immobilien-Bilder können jetzt hochgeladen werden!" style="min-height:120px;"></textarea></div>
+        <div class="actions">
+          <button class="btn btn-primary" id="cl-send" type="button">📢 Update posten</button>
+        </div>
+        <div class="notruf-status" id="cl-status"></div>
+      </div>
+    </div>
+
     <!-- ROBLOX LOOKUP TAB -->
     <div class="tab-pane" id="tab-roblox">
       <div class="admin-form">
@@ -349,6 +363,7 @@
           <label class="perm-check"><input type="checkbox" id="perm-regelwerk"> Regelwerk</label>
           <label class="perm-check"><input type="checkbox" id="perm-fraktionen"> Fraktionen</label>
           <label class="perm-check"><input type="checkbox" id="perm-serverlinks"> Server-Links</label>
+          <label class="perm-check"><input type="checkbox" id="perm-changelog"> Update posten</label>
           <label class="perm-check"><input type="checkbox" id="perm-roblox"> Roblox-Lookup</label>
           <label class="perm-check"><input type="checkbox" id="perm-strafen"> Strafen eintragen</label>
           <label class="perm-check"><input type="checkbox" id="perm-manageAdmins"> Admins verwalten</label>
@@ -938,6 +953,27 @@
     if(showSaveError(result, 'Zurücksetzen fehlgeschlagen.')) renderServerlinksTable();
   });
 
+  // ---------- CHANGELOG / UPDATE POSTEN ----------
+  document.getElementById('cl-send').addEventListener('click', async () => {
+    const btn = document.getElementById('cl-send');
+    const status = document.getElementById('cl-status');
+    const message = document.getElementById('cl-message').value.trim();
+    if(!message){ status.textContent = 'Bitte einen Text eingeben.'; status.className = 'notruf-status err'; return; }
+    btn.disabled = true;
+    status.textContent = 'Wird gepostet …';
+    status.className = 'notruf-status';
+    const result = await hessenrpPostChangelog(message);
+    if(result.ok){
+      status.textContent = '✅ Gepostet.';
+      status.className = 'notruf-status ok';
+      document.getElementById('cl-message').value = '';
+    } else {
+      status.textContent = '❌ ' + result.error;
+      status.className = 'notruf-status err';
+    }
+    btn.disabled = false;
+  });
+
   // ---------- ROBLOX LOOKUP + STRAFEN ----------
   let currentRbxId = null;
   let currentRbxUsername = null;
@@ -1016,8 +1052,8 @@
   });
 
   // ---------- ACCOUNTS ----------
-  const PERM_KEYS = ['team','immobilien','regelwerk','fraktionen','serverlinks','roblox','strafen','manageAdmins'];
-  const PERM_LABELS = { team:'Team', immobilien:'Immobilien', regelwerk:'Regelwerk', fraktionen:'Fraktionen', serverlinks:'Server-Links', roblox:'Roblox-Lookup', strafen:'Strafen', manageAdmins:'Admins verwalten' };
+  const PERM_KEYS = ['team','immobilien','regelwerk','fraktionen','serverlinks','changelog','roblox','strafen','manageAdmins'];
+  const PERM_LABELS = { team:'Team', immobilien:'Immobilien', regelwerk:'Regelwerk', fraktionen:'Fraktionen', serverlinks:'Server-Links', changelog:'Update posten', roblox:'Roblox-Lookup', strafen:'Strafen', manageAdmins:'Admins verwalten' };
 
   async function renderAccounts(){
     const rows = document.getElementById('acc-rows');

@@ -10,6 +10,7 @@
 //   7. GET/POST /api/admin/accounts  — manage admin accounts + their permissions
 //   8. GET/POST /api/roblox-strafen/:id — warn/kick/ban history per Roblox user
 //   9. POST /api/roblox-lookup       — Roblox username -> id/displayName/avatar
+//  10. POST /api/changelog           — manually post an update/announcement to the public build-log channel
 //
 // Auth model: individual admin accounts (username + password, hashed with
 // salted SHA-256) each have their own permission flags (team, immobilien,
@@ -27,6 +28,7 @@
 //   - Secret        DISCORD_WEBHOOK_NOTRUF
 //   - Secret        DISCORD_WEBHOOK_AUSWEISE
 //   - Secret        DISCORD_WEBHOOK_ADMINLOG (optional — private admin change log)
+//   - Secret        DISCORD_WEBHOOK_BUILDLOG (optional — public updates, for the manual "Update posten" tool)
 //   - Variable      NOTRUF_PING_ROLE_ID     (optional — Discord role ID to
 //                                            ping on /api/notruf; falls back
 //                                            to @here if not set)
@@ -106,7 +108,7 @@ function json(obj, status, extraHeaders) {
   });
 }
 
-var ALL_PERMISSIONS = { team: true, immobilien: true, regelwerk: true, fraktionen: true, roblox: true, strafen: true, manageAdmins: true, serverlinks: true };
+var ALL_PERMISSIONS = { team: true, immobilien: true, regelwerk: true, fraktionen: true, roblox: true, strafen: true, manageAdmins: true, serverlinks: true, changelog: true };
 var TYPE_LABELS = { team: 'Team', immobilien: 'Immobilien', regelwerk: 'Regelwerk', fraktionen: 'Fraktionen', serverlinks: 'Server-Links' };
 
 // Constant-time string comparison so an attacker can't infer a secret
@@ -402,6 +404,45 @@ async function handleGetStrafen(robloxId, request, env) {
   return json(Array.isArray(list) ? list : []);
 }
 
+async function handleChangelog(request, env) {
+  var session = await authenticate(request, env);
+  if (!can(session, 'changelog')) return json({ error: 'Nicht autorisiert.' }, 401);
+  var webhook = env.DISCORD_WEBHOOK_BUILDLOG;
+  if (!webhook) return json({ error: 'DISCORD_WEBHOOK_BUILDLOG ist auf dem Server nicht konfiguriert.' }, 500);
+
+  var allowed = await checkRateLimit(env, 'changelog', request, 10, 3600);
+  if (!allowed) return json({ error: 'Zu viele Updates in kurzer Zeit. Bitte kurz warten.' }, 429);
+
+  var data;
+  try { data = await request.json(); } catch (e) { return json({ error: 'Ungültige Anfrage.' }, 400); }
+  var message = String(data.message || '').trim().slice(0, 1500);
+  if (!message) return json({ error: 'Bitte einen Text eingeben.' }, 400);
+
+  var payload = {
+    username: 'HESSEN RP · Updates',
+    embeds: [{
+      title: '📢 Neues Update',
+      description: message,
+      color: 0x3EDC81,
+      footer: { text: 'Gepostet von ' + session.username },
+      timestamp: new Date().toISOString(),
+    }],
+  };
+
+  try {
+    var res = await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return json({ error: 'Discord hat die Anfrage abgelehnt.' }, 502);
+  } catch (e) {
+    return json({ error: 'Verbindung zu Discord fehlgeschlagen.' }, 502);
+  }
+  await postAuditLog(env, session.username, 'Update-Ankündigung gepostet: ' + message.slice(0, 100) + (message.length > 100 ? '…' : ''));
+  return json({ ok: true });
+}
+
 async function handleAddStrafe(robloxId, request, env) {
   var session = await authenticate(request, env);
   if (!can(session, 'strafen')) return json({ error: 'Nicht autorisiert.' }, 401);
@@ -614,6 +655,7 @@ export default {
 
     if (method === 'POST' && path === '/api/upload-image') return handleUploadImage(request, env);
     if (method === 'POST' && path === '/api/roblox-lookup') return handleRobloxLookup(request, env);
+    if (method === 'POST' && path === '/api/changelog') return handleChangelog(request, env);
 
     var strafenMatch = path.match(/^\/api\/roblox-strafen\/(\d+)$/);
     if (strafenMatch) {
