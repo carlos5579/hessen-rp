@@ -80,13 +80,13 @@ if(statEls.length){
 }
 
 // live discord stats via invite endpoint (no bot / widget needed)
-const HESSEN_RP_INVITE_CODE = 'v8stHccwZs';
+const VEYRON_RP_INVITE_CODE = 'v8stHccwZs';
 async function loadDiscordStats(){
   const liveEls = document.querySelectorAll('[data-live-text]');
   const memberEl = document.getElementById('stat-members');
   const onlineEl = document.getElementById('stat-online');
   try{
-    const res = await fetch(`https://discord.com/api/v9/invites/${HESSEN_RP_INVITE_CODE}?with_counts=true&with_expiration=true`);
+    const res = await fetch(`https://discord.com/api/v9/invites/${VEYRON_RP_INVITE_CODE}?with_counts=true&with_expiration=true`);
     if(!res.ok) throw new Error('discord api error');
     const data = await res.json();
     const members = data.approximate_member_count;

@@ -1,4 +1,4 @@
-// HESSEN RP - shared data client.
+// Veyron RP - shared data client.
 // Talks to the Worker's KV-backed API so all visitors see the same data
 // (team, immobilien, regelwerk, fraktionen), instead of per-browser localStorage.
 

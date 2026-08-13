@@ -1,4 +1,4 @@
-# HESSEN RP — Website
+# Veyron RP — Website
 
 Cloudflare Worker mit Static Assets. Alle Inhalte (Team, Immobilien, Regelwerk,
 Fraktionen) liegen jetzt **zentral in Cloudflare KV** — nicht mehr im
